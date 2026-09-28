@@ -29,14 +29,18 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const isLoginPage = request.nextUrl.pathname.startsWith('/login')
+  const path = request.nextUrl.pathname
+  const isLoginPage = path === '/login'
+  const isPublicPage = path === '/' || path.startsWith('/privacy')
 
-  if (!user && !isLoginPage) {
+  // Se non autenticato e non è una pagina pubblica → vai a login
+  if (!user && !isLoginPage && !isPublicPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
   }
 
+  // Se autenticato e sta sulla pagina di login → vai alla dashboard
   if (user && isLoginPage) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
