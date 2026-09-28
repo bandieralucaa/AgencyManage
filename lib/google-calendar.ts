@@ -78,9 +78,6 @@ export async function getStatoCalendario(agenteId: string): Promise<StatoCalenda
   const calendarsData = await calendarsRes.json()
   const calendari = calendarsData.items || []
 
-  console.log('=== CALENDARI TROVATI ===')
-  console.log(calendari.map((c: any) => ({ id: c.id, summary: c.summary, primary: c.primary })))
-
   // 2. Per ogni calendario, leggi gli eventi di oggi
   const oggi = new Date()
   const inizio = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate()).toISOString()
@@ -119,9 +116,6 @@ export async function getStatoCalendario(agenteId: string): Promise<StatoCalenda
 
   // 3. Ordina per orario di inizio
   tuttiEventi.sort((a, b) => new Date(a.inizio).getTime() - new Date(b.inizio).getTime())
-
-  console.log('=== EVENTI TOTALI TROVATI ===', tuttiEventi.length)
-  console.log(tuttiEventi.map((e) => `${e.inizio} - ${e.titolo} (${e.calendario})`))
 
   return { connesso: true, eventi: tuttiEventi }
 }
