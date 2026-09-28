@@ -66,32 +66,22 @@ export default function FormImmobile({
       {/* CLASSIFICAZIONE */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">Classificazione</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Categoria *</label>
-            <select name="categoria" required defaultValue={immobile?.categoria || 'casa'}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="casa">Casa</option>
-              <option value="non_casa">Non casa</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Tipo *</label>
-            <select name="tipo" required defaultValue={immobile?.tipo || 'appartamento'}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="appartamento">Appartamento</option>
-              <option value="villa">Villa</option>
-              <option value="villetta">Villetta</option>
-              <option value="terreno">Terreno</option>
-              <option value="ufficio">Ufficio</option>
-              <option value="negozio">Negozio</option>
-              <option value="garage">Garage</option>
-              <option value="box">Box</option>
-              <option value="magazzino">Magazzino</option>
-              <option value="rustico">Rustico</option>
-              <option value="altro">Altro</option>
-            </select>
-          </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">Tipo *</label>
+          <select name="tipo" required defaultValue={immobile?.tipo || 'appartamento'}
+            className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="appartamento">Appartamento</option>
+            <option value="villa">Villa</option>
+            <option value="villetta">Villetta</option>
+            <option value="rustico">Rustico</option>
+            <option value="terreno">Terreno</option>
+            <option value="ufficio">Ufficio</option>
+            <option value="negozio">Negozio</option>
+            <option value="magazzino">Magazzino</option>
+            <option value="garage">Garage</option>
+            <option value="box">Box</option>
+            <option value="altro">Altro</option>
+          </select>
         </div>
       </section>
 

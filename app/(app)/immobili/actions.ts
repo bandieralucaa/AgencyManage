@@ -10,14 +10,22 @@ function numOrNull(v: FormDataEntryValue | null) {
   return isNaN(n) ? null : n
 }
 
+// Calcola la categoria dal tipo
+function categoriaDaTipo(tipo: string): string {
+  const tipiCasa = ['appartamento', 'villa', 'villetta', 'rustico']
+  return tipiCasa.includes(tipo) ? 'casa' : 'non_casa'
+}
+
 export async function creaImmobile(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non autenticato')
 
+  const tipo = formData.get('tipo') as string
+
   const { error } = await supabase.from('immobili').insert({
-    tipo: formData.get('tipo') as string,
-    categoria: formData.get('categoria') as string,
+    tipo,
+    categoria: categoriaDaTipo(tipo),
     indirizzo: formData.get('indirizzo') as string,
     civico: formData.get('civico') || null,
     frazione: formData.get('frazione') || null,
@@ -48,11 +56,13 @@ export async function creaImmobile(formData: FormData) {
 export async function aggiornaImmobile(id: string, formData: FormData) {
   const supabase = await createClient()
 
+  const tipo = formData.get('tipo') as string
+
   const { error } = await supabase
     .from('immobili')
     .update({
-      tipo: formData.get('tipo') as string,
-      categoria: formData.get('categoria') as string,
+      tipo,
+      categoria: categoriaDaTipo(tipo),
       indirizzo: formData.get('indirizzo') as string,
       civico: formData.get('civico') || null,
       frazione: formData.get('frazione') || null,

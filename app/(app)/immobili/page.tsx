@@ -66,56 +66,75 @@ export default async function ImmobiliPage({
 
       {immobili && immobili.length > 0 ? (
         <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-900 border-b border-slate-700">
-                <tr className="text-left text-xs text-slate-400 uppercase">
-                  <th className="px-5 py-3 font-medium">Indirizzo</th>
-                  <th className="px-5 py-3 font-medium">Tipo</th>
-                  <th className="px-5 py-3 font-medium">Frazione</th>
-                  <th className="px-5 py-3 font-medium">Mq</th>
-                  <th className="px-5 py-3 font-medium w-32">Stato</th>
+          <table className="w-full">
+            <thead className="bg-slate-900 border-b border-slate-700">
+              <tr className="text-left text-xs text-slate-400 uppercase">
+                <th className="px-5 py-3 font-medium">Indirizzo</th>
+                <th className="px-5 py-3 font-medium">Tipo</th>
+                <th className="px-5 py-3 font-medium">Frazione</th>
+                <th className="px-5 py-3 font-medium">Mq</th>
+                <th className="px-5 py-3 font-medium w-32">Stato</th>
+                <th className="px-5 py-3 font-medium w-24"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {immobili.map((i) => (
+                <tr
+                  key={i.id}
+                  className="border-b border-slate-700 last:border-0 hover:bg-slate-700/40 transition-colors"
+                >
+                  <td className="px-5 py-3">
+                    <div className="font-medium">
+                      {i.indirizzo} {i.civico}
+                    </div>
+                  </td>
+                  <td className="px-5 py-3 text-sm text-slate-300">
+                    {TIPI[i.tipo] || i.tipo}
+                  </td>
+                  <td className="px-5 py-3 text-sm text-slate-300">
+                    {i.frazione || '—'}
+                  </td>
+                  <td className="px-5 py-3 text-sm text-slate-300">
+                    {i.metri_quadrati || '—'}
+                  </td>
+                  <td className="px-5 py-3">
+                    <span
+                      className={`text-xs px-2 py-1 rounded ${
+                        i.attivo
+                          ? 'bg-emerald-500/20 text-emerald-400'
+                          : 'bg-slate-700 text-slate-400'
+                      }`}
+                    >
+                      {i.attivo ? 'Attivo' : 'Archiviato'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    <Link
+                      href={`/immobili/${i.id}`}
+                      className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-400 hover:bg-slate-700 px-2.5 py-1.5 rounded transition-colors"
+                      title="Apri dettaglio"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                      Dettagli
+                    </Link>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {immobili.map((i) => (
-                  <tr
-                    key={i.id}
-                    className="border-b border-slate-700 last:border-0 hover:bg-slate-700/40 transition-colors"
-                  >
-                    <td className="px-5 py-3">
-                      <Link
-                        href={`/immobili/${i.id}`}
-                        className="font-medium text-blue-400 hover:text-blue-300 hover:underline transition-colors"
-                      >
-                        {i.indirizzo} {i.civico}
-                      </Link>
-                    </td>
-                    <td className="px-5 py-3 text-sm text-slate-300">
-                      {TIPI[i.tipo] || i.tipo}
-                    </td>
-                    <td className="px-5 py-3 text-sm text-slate-300">
-                      {i.frazione || '—'}
-                    </td>
-                    <td className="px-5 py-3 text-sm text-slate-300">
-                      {i.metri_quadrati || '—'}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span
-                        className={`text-xs px-2 py-1 rounded ${
-                          i.attivo
-                            ? 'bg-emerald-500/20 text-emerald-400'
-                            : 'bg-slate-700 text-slate-400'
-                        }`}
-                      >
-                        {i.attivo ? 'Attivo' : 'Archiviato'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : (
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-12 text-center">
