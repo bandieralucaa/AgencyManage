@@ -96,7 +96,7 @@ export default function FormRichiesta({
   async function aggiornaComuneCap() {
     const parti = form.frazioni_cercate
       .split(',')
-      .map((f) => f.trim())
+      .map((f: string) => f.trim())
       .filter(Boolean)
 
     if (parti.length === 0) {
