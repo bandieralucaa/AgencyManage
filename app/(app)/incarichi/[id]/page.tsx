@@ -4,10 +4,16 @@ import { createClient } from '@/lib/supabase/server'
 import EliminaIncaricoButton from './elimina-button'
 
 const STATI: Record<string, { label: string; colore: string }> = {
-  attivo: { label: 'Attivo', colore: 'bg-emerald-500/20 text-emerald-400' },
-  scaduto: { label: 'Scaduto', colore: 'bg-red-500/20 text-red-400' },
-  revocato: { label: 'Revocato', colore: 'bg-slate-700 text-slate-400' },
-  concluso: { label: 'Concluso', colore: 'bg-blue-500/20 text-blue-400' },
+  attivo: { label: '🟢 Attivo', colore: 'bg-emerald-500/20 text-emerald-400' },
+  concluso_bene: { label: '✅ Concluso bene', colore: 'bg-blue-500/20 text-blue-400' },
+  concluso_male: { label: '❌ Concluso male', colore: 'bg-red-500/20 text-red-400' },
+}
+
+const MOTIVI_CHIUSURA: Record<string, string> = {
+  venduto_altrove: '🔄 Venduto/Affittato altrove',
+  ritirato_cliente: '🚫 Ritirato dal cliente',
+  scaduto: '⏰ Scaduto senza rinnovo',
+  altro: '📝 Altro',
 }
 
 export default async function IncaricoPage({
@@ -54,6 +60,7 @@ export default async function IncaricoPage({
   }
 
   const giorni = giorniAllaScadenza(incarico.data_scadenza)
+  const isAttivo = incarico.stato === 'attivo'
 
   return (
     <div className="p-6 lg:p-10">
@@ -172,12 +179,12 @@ export default async function IncaricoPage({
               <dt className="text-slate-400">Data scadenza</dt>
               <dd className="text-white mt-0.5">
                 {formatData(incarico.data_scadenza)}
-                {giorni >= 0 && (
+                {isAttivo && giorni >= 0 && (
                   <span className="ml-2 text-xs text-slate-500">
                     ({giorni} giorni rimanenti)
                   </span>
                 )}
-                {giorni < 0 && (
+                {isAttivo && giorni < 0 && (
                   <span className="ml-2 text-xs text-red-400">
                     (scaduto da {Math.abs(giorni)} giorni)
                   </span>
@@ -201,9 +208,40 @@ export default async function IncaricoPage({
           </dl>
         </div>
 
+        {/* CHIUSURA (se concluso) */}
+        {!isAttivo && (
+          <div
+            className={`border rounded-xl p-6 ${
+              incarico.stato === 'concluso_bene'
+                ? 'bg-blue-500/5 border-blue-500/30'
+                : 'bg-red-500/5 border-red-500/30'
+            }`}
+          >
+            <h2 className="text-lg font-semibold mb-4">
+              {incarico.stato === 'concluso_bene' ? '🎉 Chiusura positiva' : '❌ Chiusura negativa'}
+            </h2>
+            <dl className="space-y-3 text-sm">
+              {incarico.data_chiusura && (
+                <div>
+                  <dt className="text-slate-400">Data chiusura</dt>
+                  <dd className="text-white mt-0.5">{formatData(incarico.data_chiusura)}</dd>
+                </div>
+              )}
+              {incarico.motivo_chiusura && (
+                <div>
+                  <dt className="text-slate-400">Motivo</dt>
+                  <dd className="text-white mt-0.5">
+                    {MOTIVI_CHIUSURA[incarico.motivo_chiusura] || incarico.motivo_chiusura}
+                  </dd>
+                </div>
+              )}
+            </dl>
+          </div>
+        )}
+
         {/* NOTE */}
         {incarico.note && (
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 lg:col-span-2">
             <h2 className="text-lg font-semibold mb-4">Note</h2>
             <p className="text-sm text-slate-300 whitespace-pre-wrap">{incarico.note}</p>
           </div>

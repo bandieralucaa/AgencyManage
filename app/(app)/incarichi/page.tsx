@@ -3,10 +3,16 @@ import { createClient } from '@/lib/supabase/server'
 import RicercaIncarichi from '@/components/ricerca-incarichi'
 
 const STATI: Record<string, { label: string; colore: string }> = {
-  attivo: { label: 'Attivo', colore: 'bg-emerald-500/20 text-emerald-400' },
-  scaduto: { label: 'Scaduto', colore: 'bg-red-500/20 text-red-400' },
-  revocato: { label: 'Revocato', colore: 'bg-slate-700 text-slate-400' },
-  concluso: { label: 'Concluso', colore: 'bg-blue-500/20 text-blue-400' },
+  attivo: { label: '🟢 Attivo', colore: 'bg-emerald-500/20 text-emerald-400' },
+  concluso_bene: { label: '✅ Concluso bene', colore: 'bg-blue-500/20 text-blue-400' },
+  concluso_male: { label: '❌ Concluso male', colore: 'bg-red-500/20 text-red-400' },
+}
+
+const MOTIVI_CHIUSURA: Record<string, string> = {
+  venduto_altrove: 'Venduto altrove',
+  ritirato_cliente: 'Ritirato dal cliente',
+  scaduto: 'Scaduto',
+  altro: 'Altro',
 }
 
 export default async function IncarichiPage({
@@ -21,6 +27,7 @@ export default async function IncarichiPage({
     .from('incarichi')
     .select(`
       id, tipo, stato, data_inizio, data_scadenza, prezzo, esclusivo,
+      data_chiusura, motivo_chiusura,
       immobili (id, indirizzo, civico, comune, frazione),
       clienti (id, nome, cognome)
     `)
@@ -82,8 +89,8 @@ export default async function IncarichiPage({
                 <th className="px-5 py-3 font-medium">Cliente</th>
                 <th className="px-5 py-3 font-medium">Tipo</th>
                 <th className="px-5 py-3 font-medium">Prezzo</th>
-                <th className="px-5 py-3 font-medium">Scadenza</th>
-                <th className="px-5 py-3 font-medium w-32">Stato</th>
+                <th className="px-5 py-3 font-medium">Scadenza / Chiusura</th>
+                <th className="px-5 py-3 font-medium w-44">Stato</th>
                 <th className="px-5 py-3 font-medium w-24"></th>
               </tr>
             </thead>
@@ -93,6 +100,7 @@ export default async function IncarichiPage({
                 const cli = Array.isArray(i.clienti) ? i.clienti[0] : i.clienti
                 const stato = STATI[i.stato] || { label: i.stato, colore: 'bg-slate-700 text-slate-300' }
                 const giorni = giorniAllaScadenza(i.data_scadenza)
+                const isAttivo = i.stato === 'attivo'
 
                 return (
                   <tr
@@ -127,20 +135,33 @@ export default async function IncarichiPage({
                         : '—'}
                     </td>
                     <td className="px-5 py-3">
-                      <span
-                        className={`text-xs px-2 py-1 rounded whitespace-nowrap ${coloreScadenza(giorni)}`}
-                      >
-                        {formatData(i.data_scadenza)}
-                        {giorni >= 0 && giorni <= 90 && (
-                          <span className="ml-1">({giorni}gg)</span>
-                        )}
-                        {giorni < 0 && <span className="ml-1">(scaduto)</span>}
-                      </span>
+                      {isAttivo ? (
+                        <span
+                          className={`text-xs px-2 py-1 rounded whitespace-nowrap ${coloreScadenza(giorni)}`}
+                        >
+                          {formatData(i.data_scadenza)}
+                          {giorni >= 0 && giorni <= 90 && (
+                            <span className="ml-1">({giorni}gg)</span>
+                          )}
+                          {giorni < 0 && <span className="ml-1">(scaduto)</span>}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">
+                          {i.data_chiusura ? formatData(i.data_chiusura) : '—'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-3">
-                      <span className={`text-xs px-2 py-1 rounded whitespace-nowrap ${stato.colore}`}>
-                        {stato.label}
-                      </span>
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className={`text-xs px-2 py-1 rounded whitespace-nowrap ${stato.colore}`}>
+                          {stato.label}
+                        </span>
+                        {i.stato === 'concluso_male' && i.motivo_chiusura && (
+                          <span className="text-[11px] text-slate-500">
+                            {MOTIVI_CHIUSURA[i.motivo_chiusura] || i.motivo_chiusura}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-5 py-3 text-right">
                       <Link

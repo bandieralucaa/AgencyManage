@@ -17,10 +17,11 @@ export async function creaIncarico(formData: FormData) {
 
   const immobileId = formData.get('immobile_id') as string
   const clienteId = formData.get('cliente_id') as string
+  const stato = (formData.get('stato') as string) || 'attivo'
 
   if (!immobileId) throw new Error('Immobile obbligatorio')
 
-  const { error } = await supabase.from('incarichi').insert({
+  const insertData: any = {
     immobile_id: immobileId,
     cliente_id: clienteId || null,
     agente_id: user.id,
@@ -29,9 +30,17 @@ export async function creaIncarico(formData: FormData) {
     data_scadenza: formData.get('data_scadenza') as string,
     prezzo: numOrNull(formData.get('prezzo')),
     esclusivo: formData.get('esclusivo') === 'on',
-    stato: (formData.get('stato') as string) || 'attivo',
+    stato,
     note: formData.get('note') || null,
-  })
+  }
+
+  if (stato !== 'attivo') {
+    insertData.data_chiusura =
+      formData.get('data_chiusura') || new Date().toISOString().split('T')[0]
+    insertData.motivo_chiusura = formData.get('motivo_chiusura') || null
+  }
+
+  const { error } = await supabase.from('incarichi').insert(insertData)
 
   if (error) throw new Error(error.message)
   revalidatePath('/incarichi')
@@ -43,23 +52,32 @@ export async function aggiornaIncarico(id: string, formData: FormData) {
 
   const immobileId = formData.get('immobile_id') as string
   const clienteId = formData.get('cliente_id') as string
+  const stato = formData.get('stato') as string
 
   if (!immobileId) throw new Error('Immobile obbligatorio')
 
-  const { error } = await supabase
-    .from('incarichi')
-    .update({
-      immobile_id: immobileId,
-      cliente_id: clienteId || null,
-      tipo: formData.get('tipo') as string,
-      data_inizio: formData.get('data_inizio') as string,
-      data_scadenza: formData.get('data_scadenza') as string,
-      prezzo: numOrNull(formData.get('prezzo')),
-      esclusivo: formData.get('esclusivo') === 'on',
-      stato: formData.get('stato') as string,
-      note: formData.get('note') || null,
-    })
-    .eq('id', id)
+  const update: any = {
+    immobile_id: immobileId,
+    cliente_id: clienteId || null,
+    tipo: formData.get('tipo') as string,
+    data_inizio: formData.get('data_inizio') as string,
+    data_scadenza: formData.get('data_scadenza') as string,
+    prezzo: numOrNull(formData.get('prezzo')),
+    esclusivo: formData.get('esclusivo') === 'on',
+    stato,
+    note: formData.get('note') || null,
+  }
+
+  if (stato !== 'attivo') {
+    update.data_chiusura =
+      formData.get('data_chiusura') || new Date().toISOString().split('T')[0]
+    update.motivo_chiusura = formData.get('motivo_chiusura') || null
+  } else {
+    update.data_chiusura = null
+    update.motivo_chiusura = null
+  }
+
+  const { error } = await supabase.from('incarichi').update(update).eq('id', id)
 
   if (error) throw new Error(error.message)
   revalidatePath('/incarichi')

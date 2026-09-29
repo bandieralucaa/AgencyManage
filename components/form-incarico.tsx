@@ -5,6 +5,13 @@ import { createClient } from '@/lib/supabase/client'
 
 type Opzione = { id: string; label: string }
 
+const MOTIVI_CHIUSURA_MALE = [
+  { value: 'venduto_altrove', label: '🔄 Venduto/Affittato altrove' },
+  { value: 'ritirato_cliente', label: '🚫 Ritirato dal cliente' },
+  { value: 'scaduto', label: '⏰ Scaduto senza rinnovo' },
+  { value: 'altro', label: '📝 Altro' },
+]
+
 export default function FormIncarico({
   incarico,
   action,
@@ -26,6 +33,8 @@ export default function FormIncarico({
     prezzo: incarico?.prezzo ?? '',
     esclusivo: incarico?.esclusivo ?? false,
     stato: incarico?.stato ?? 'attivo',
+    data_chiusura: incarico?.data_chiusura ?? '',
+    motivo_chiusura: incarico?.motivo_chiusura ?? '',
     note: incarico?.note ?? '',
   })
 
@@ -71,6 +80,10 @@ export default function FormIncarico({
     }
     carica()
   }, [supabase])
+
+  const mostraChiusura = form.stato !== 'attivo'
+  const isConclusoBene = form.stato === 'concluso_bene'
+  const isConclusoMale = form.stato === 'concluso_male'
 
   return (
     <form
@@ -148,21 +161,6 @@ export default function FormIncarico({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Stato *</label>
-            <select
-              name="stato"
-              required
-              value={form.stato}
-              onChange={(e) => upd('stato', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="attivo">Attivo</option>
-              <option value="scaduto">Scaduto</option>
-              <option value="revocato">Revocato</option>
-              <option value="concluso">Concluso</option>
-            </select>
-          </div>
-          <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Prezzo richiesto €
             </label>
@@ -173,6 +171,18 @@ export default function FormIncarico({
               onChange={(e) => upd('prezzo', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+          <div className="flex items-end">
+            <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none pb-2.5">
+              <input
+                type="checkbox"
+                name="esclusivo"
+                checked={form.esclusivo}
+                onChange={(e) => upd('esclusivo', e.target.checked)}
+                className="w-4 h-4 accent-blue-600"
+              />
+              Incarico in esclusiva
+            </label>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -200,19 +210,107 @@ export default function FormIncarico({
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div className="flex items-end">
-            <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none pb-2.5">
-              <input
-                type="checkbox"
-                name="esclusivo"
-                checked={form.esclusivo}
-                onChange={(e) => upd('esclusivo', e.target.checked)}
-                className="w-4 h-4 accent-blue-600"
-              />
-              Incarico in esclusiva
-            </label>
-          </div>
         </div>
+      </section>
+
+      {/* STATO E CHIUSURA */}
+      <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 className="text-lg font-semibold mb-4">Stato incarico</h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+          <button
+            type="button"
+            onClick={() => upd('stato', 'attivo')}
+            className={`text-left px-4 py-3 rounded-xl border-2 transition-colors ${
+              form.stato === 'attivo'
+                ? 'border-emerald-500 bg-emerald-500/10'
+                : 'border-slate-700 bg-slate-900 hover:border-slate-600'
+            }`}
+          >
+            <div className="text-xl mb-1">🟢</div>
+            <div className="font-semibold text-white text-sm">Attivo</div>
+            <div className="text-xs text-slate-400 mt-0.5">In corso</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => upd('stato', 'concluso_bene')}
+            className={`text-left px-4 py-3 rounded-xl border-2 transition-colors ${
+              form.stato === 'concluso_bene'
+                ? 'border-blue-500 bg-blue-500/10'
+                : 'border-slate-700 bg-slate-900 hover:border-slate-600'
+            }`}
+          >
+            <div className="text-xl mb-1">✅</div>
+            <div className="font-semibold text-white text-sm">Concluso bene</div>
+            <div className="text-xs text-slate-400 mt-0.5">Venduto/affittato da noi</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => upd('stato', 'concluso_male')}
+            className={`text-left px-4 py-3 rounded-xl border-2 transition-colors ${
+              form.stato === 'concluso_male'
+                ? 'border-red-500 bg-red-500/10'
+                : 'border-slate-700 bg-slate-900 hover:border-slate-600'
+            }`}
+          >
+            <div className="text-xl mb-1">❌</div>
+            <div className="font-semibold text-white text-sm">Concluso male</div>
+            <div className="text-xs text-slate-400 mt-0.5">Non concluso</div>
+          </button>
+        </div>
+
+        <input type="hidden" name="stato" value={form.stato} />
+
+        {isConclusoBene && (
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Data chiusura
+            </label>
+            <input
+              type="date"
+              name="data_chiusura"
+              value={form.data_chiusura || new Date().toISOString().split('T')[0]}
+              onChange={(e) => upd('data_chiusura', e.target.value)}
+              className="w-full max-w-xs px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        )}
+
+        {isConclusoMale && (
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Motivo chiusura *
+              </label>
+              <select
+                name="motivo_chiusura"
+                required
+                value={form.motivo_chiusura}
+                onChange={(e) => upd('motivo_chiusura', e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">— Seleziona motivo —</option>
+                {MOTIVI_CHIUSURA_MALE.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Data chiusura
+              </label>
+              <input
+                type="date"
+                name="data_chiusura"
+                value={form.data_chiusura || new Date().toISOString().split('T')[0]}
+                onChange={(e) => upd('data_chiusura', e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        )}
       </section>
 
       {/* NOTE */}

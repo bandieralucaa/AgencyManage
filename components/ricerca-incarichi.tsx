@@ -45,10 +45,9 @@ export default function RicercaIncarichi() {
         className="px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
         <option value="">Tutti gli stati</option>
-        <option value="attivo">Attivo</option>
-        <option value="scaduto">Scaduto</option>
-        <option value="revocato">Revocato</option>
-        <option value="concluso">Concluso</option>
+        <option value="attivo">🟢 Attivo</option>
+        <option value="concluso_bene">✅ Concluso bene</option>
+        <option value="concluso_male">❌ Concluso male</option>
       </select>
     </div>
   )
