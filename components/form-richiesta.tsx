@@ -132,7 +132,7 @@ export default function FormRichiesta({
     }
     const giaInseriti = parti
       .slice(0, -1)
-      .map((p) => p.trim().toLowerCase())
+      .map((p: string) => p.trim().toLowerCase())
       .filter(Boolean)
     const filtrati = FRAZIONI_DISPONIBILI.filter(
       (f) =>
@@ -155,7 +155,7 @@ export default function FormRichiesta({
     // Auto-compila comune e CAP
     const primaFrazione = finale
       .split(',')
-      .map((f) => f.trim())
+      .map((f: string) => f.trim())
       .filter(Boolean)[0]
     if (primaFrazione) {
       const { data } = await supabase
@@ -183,7 +183,7 @@ export default function FormRichiesta({
     }
     const giaInseriti = parti
       .slice(0, -1)
-      .map((p) => p.trim().toLowerCase())
+      .map((p: string) => p.trim().toLowerCase())
       .filter(Boolean)
     const filtrati = TIPOLOGIE_DISPONIBILI.filter(
       (t) =>
