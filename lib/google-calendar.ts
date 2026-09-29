@@ -7,6 +7,7 @@ export type EventoCalendario = {
   fine: string
   tuttoIlGiorno: boolean
   luogo?: string
+  descrizione?: string
   calendario?: string
 }
 
@@ -15,7 +16,10 @@ export type StatoCalendario = {
   eventi: EventoCalendario[]
 }
 
-export async function getStatoCalendario(agenteId: string): Promise<StatoCalendario> {
+/**
+ * Recupera un access_token valido per l'agente, rinnovandolo se scaduto.
+ */
+async function getAccessToken(agenteId: string): Promise<string | null> {
   const supabase = await createClient()
 
   const { data: integrazione } = await supabase
@@ -25,16 +29,15 @@ export async function getStatoCalendario(agenteId: string): Promise<StatoCalenda
     .eq('provider', 'google')
     .single()
 
-  if (!integrazione) {
-    return { connesso: false, eventi: [] }
-  }
+  if (!integrazione) return null
 
   let accessToken = integrazione.access_token
 
-  if (integrazione.expires_at && new Date(integrazione.expires_at) < new Date()) {
-    if (!integrazione.refresh_token) {
-      return { connesso: true, eventi: [] }
-    }
+  const scadenza = integrazione.expires_at ? new Date(integrazione.expires_at) : null
+  const sta_perScadere = scadenza && scadenza.getTime() - Date.now() < 60000
+
+  if (sta_perScadere) {
+    if (!integrazione.refresh_token) return null
 
     const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -47,9 +50,7 @@ export async function getStatoCalendario(agenteId: string): Promise<StatoCalenda
       }),
     })
 
-    if (!refreshRes.ok) {
-      return { connesso: true, eventi: [] }
-    }
+    if (!refreshRes.ok) return null
 
     const newTokens = await refreshRes.json()
     accessToken = newTokens.access_token
@@ -65,7 +66,31 @@ export async function getStatoCalendario(agenteId: string): Promise<StatoCalenda
       .eq('provider', 'google')
   }
 
-  // 1. Recupera la lista di TUTTI i calendari dell'utente
+  return accessToken
+}
+
+/**
+ * Legge gli eventi di OGGI da tutti i calendari dell'utente.
+ */
+export async function getStatoCalendario(agenteId: string): Promise<StatoCalendario> {
+  const supabase = await createClient()
+
+  const { data: integrazione } = await supabase
+    .from('integrazioni_calendario')
+    .select('agente_id')
+    .eq('agente_id', agenteId)
+    .eq('provider', 'google')
+    .single()
+
+  if (!integrazione) {
+    return { connesso: false, eventi: [] }
+  }
+
+  const accessToken = await getAccessToken(agenteId)
+  if (!accessToken) {
+    return { connesso: true, eventi: [] }
+  }
+
   const calendarsRes = await fetch(
     'https://www.googleapis.com/calendar/v3/users/me/calendarList',
     { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -78,7 +103,6 @@ export async function getStatoCalendario(agenteId: string): Promise<StatoCalenda
   const calendarsData = await calendarsRes.json()
   const calendari = calendarsData.items || []
 
-  // 2. Per ogni calendario, leggi gli eventi di oggi
   const oggi = new Date()
   const inizio = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate()).toISOString()
   const fine = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate() + 1).toISOString()
@@ -114,8 +138,215 @@ export async function getStatoCalendario(agenteId: string): Promise<StatoCalenda
     tuttiEventi.push(...eventi)
   }
 
-  // 3. Ordina per orario di inizio
   tuttiEventi.sort((a, b) => new Date(a.inizio).getTime() - new Date(b.inizio).getTime())
 
   return { connesso: true, eventi: tuttiEventi }
+}
+
+/**
+ * Legge tutti gli eventi di un mese (da tutti i calendari).
+ */
+export async function getEventiMese(
+  agenteId: string,
+  anno: number,
+  mese: number
+): Promise<EventoCalendario[]> {
+  const accessToken = await getAccessToken(agenteId)
+  if (!accessToken) return []
+
+  const calendarsRes = await fetch(
+    'https://www.googleapis.com/calendar/v3/users/me/calendarList',
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  )
+
+  if (!calendarsRes.ok) return []
+
+  const calendarsData = await calendarsRes.json()
+  const calendari = calendarsData.items || []
+
+    const inizio = new Date(anno, mese - 1, 1).toISOString()
+  const fine = new Date(anno, mese + 2, 1).toISOString()
+
+  console.log('🔵 Cerco eventi dal', inizio, 'al', fine)
+
+  const tuttiEventi: EventoCalendario[] = []
+
+  for (const cal of calendari) {
+    const params = new URLSearchParams({
+      timeMin: inizio,
+      timeMax: fine,
+      singleEvents: 'true',
+      orderBy: 'startTime',
+      maxResults: '250',
+    })
+
+       const eventsRes = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?${params.toString()}`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    )
+
+    if (!eventsRes.ok) {
+      console.log('🔴 Errore sul calendario', cal.summary, eventsRes.status)
+      continue
+    }
+
+    const data = await eventsRes.json()
+    console.log('🔵 Calendario:', cal.summary, '- Eventi trovati:', (data.items || []).length)
+    const eventi = (data.items || []).map((e: any) => ({
+      id: e.id,
+      titolo: e.summary || '(senza titolo)',
+      inizio: e.start.dateTime || e.start.date,
+      fine: e.end.dateTime || e.end.date,
+      tuttoIlGiorno: !e.start.dateTime,
+      luogo: e.location,
+      descrizione: e.description,
+      calendario: cal.summary,
+    }))
+
+    tuttiEventi.push(...eventi)
+  }
+
+  return tuttiEventi
+}
+
+/**
+ * Crea un evento sul calendario "primary".
+ */
+export async function creaEvento(
+  agenteId: string,
+  evento: {
+    titolo: string
+    inizio: string
+    fine: string
+    tuttoIlGiorno: boolean
+    luogo?: string
+    descrizione?: string
+  }
+): Promise<{ ok: boolean; errore?: string; evento?: EventoCalendario }> {
+  const accessToken = await getAccessToken(agenteId)
+  if (!accessToken) return { ok: false, errore: 'Non connesso a Google Calendar' }
+
+  const body: any = {
+    summary: evento.titolo,
+    location: evento.luogo || undefined,
+    description: evento.descrizione || undefined,
+  }
+
+  if (evento.tuttoIlGiorno) {
+    body.start = { date: evento.inizio.split('T')[0] }
+    body.end = { date: evento.fine.split('T')[0] }
+  } else {
+    body.start = { dateTime: evento.inizio, timeZone: 'Europe/Rome' }
+    body.end = { dateTime: evento.fine, timeZone: 'Europe/Rome' }
+  }
+
+  const res = await fetch(
+    'https://www.googleapis.com/calendar/v3/calendars/primary/events',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    }
+  )
+
+  if (!res.ok) {
+    const err = await res.text()
+    return { ok: false, errore: err }
+  }
+
+  const data = await res.json()
+
+  return {
+    ok: true,
+    evento: {
+      id: data.id,
+      titolo: data.summary || '(senza titolo)',
+      inizio: data.start.dateTime || data.start.date,
+      fine: data.end.dateTime || data.end.date,
+      tuttoIlGiorno: !data.start.dateTime,
+      luogo: data.location,
+      descrizione: data.description,
+    },
+  }
+}
+
+/**
+ * Aggiorna un evento del calendario "primary".
+ */
+export async function aggiornaEvento(
+  agenteId: string,
+  eventId: string,
+  evento: {
+    titolo: string
+    inizio: string
+    fine: string
+    tuttoIlGiorno: boolean
+    luogo?: string
+    descrizione?: string
+  }
+): Promise<{ ok: boolean; errore?: string }> {
+  const accessToken = await getAccessToken(agenteId)
+  if (!accessToken) return { ok: false, errore: 'Non connesso a Google Calendar' }
+
+  const body: any = {
+    summary: evento.titolo,
+    location: evento.luogo || undefined,
+    description: evento.descrizione || undefined,
+  }
+
+  if (evento.tuttoIlGiorno) {
+    body.start = { date: evento.inizio.split('T')[0] }
+    body.end = { date: evento.fine.split('T')[0] }
+  } else {
+    body.start = { dateTime: evento.inizio, timeZone: 'Europe/Rome' }
+    body.end = { dateTime: evento.fine, timeZone: 'Europe/Rome' }
+  }
+
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    }
+  )
+
+  if (!res.ok) {
+    const err = await res.text()
+    return { ok: false, errore: err }
+  }
+
+  return { ok: true }
+}
+
+/**
+ * Elimina un evento dal calendario "primary".
+ */
+export async function eliminaEvento(
+  agenteId: string,
+  eventId: string
+): Promise<{ ok: boolean; errore?: string }> {
+  const accessToken = await getAccessToken(agenteId)
+  if (!accessToken) return { ok: false, errore: 'Non connesso a Google Calendar' }
+
+  const res = await fetch(
+    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
+    {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }
+  )
+
+  if (!res.ok && res.status !== 410) {
+    const err = await res.text()
+    return { ok: false, errore: err }
+  }
+
+  return { ok: true }
 }

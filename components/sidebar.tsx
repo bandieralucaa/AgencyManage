@@ -7,6 +7,7 @@ import { useState } from 'react'
 
 const VOCI = [
   { href: '/dashboard', label: 'Dashboard', icona: '📊' },
+  { href: '/agenda', label: 'Agenda', icona: '📅' },
   { href: '/clienti', label: 'Clienti', icona: '👥' },
   { href: '/immobili', label: 'Immobili', icona: '🏠' },
   { href: '/richieste', label: 'Richieste', icona: '🔍' },
