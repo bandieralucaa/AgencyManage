@@ -1,34 +1,42 @@
 'use client'
 
-type ClienteData = {
-  id?: string
-  tipologia?: string
-  tipo?: string
-  nome?: string
-  cognome?: string
-  partita_iva?: string | null
-  codice_fiscale?: string | null
-  indirizzo?: string | null
-  civico?: string | null
-  comune?: string | null
-  cap?: string | null
-  provincia?: string | null
-  telefono?: string | null
-  email?: string | null
-  pec?: string | null
-  note?: string | null
-}
+import { useState } from 'react'
 
 export default function FormCliente({
   cliente,
   action,
 }: {
-  cliente?: ClienteData
+  cliente?: any
   action: (formData: FormData) => void | Promise<void>
 }) {
+  const [form, setForm] = useState({
+    tipologia: cliente?.tipologia ?? 'persona_fisica',
+    tipo: cliente?.tipo ?? 'acquirente',
+    nome: cliente?.nome ?? '',
+    cognome: cliente?.cognome ?? '',
+    data_nascita: cliente?.data_nascita ?? '',
+    codice_fiscale: cliente?.codice_fiscale ?? '',
+    partita_iva: cliente?.partita_iva ?? '',
+    indirizzo: cliente?.indirizzo ?? '',
+    civico: cliente?.civico ?? '',
+    comune: cliente?.comune ?? '',
+    cap: cliente?.cap ?? '',
+    provincia: cliente?.provincia ?? '',
+    telefono: cliente?.telefono ?? '',
+    email: cliente?.email ?? '',
+    pec: cliente?.pec ?? '',
+    note: cliente?.note ?? '',
+  })
+
+  function upd<K extends keyof typeof form>(field: K, value: typeof form[K]) {
+    setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  const isPersonaFisica = form.tipologia === 'persona_fisica'
+
   return (
     <form action={action} className="space-y-8">
-      {/* TIPOLOGIA E TIPO */}
+      {/* CLASSIFICAZIONE */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">Classificazione</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -39,7 +47,8 @@ export default function FormCliente({
             <select
               name="tipologia"
               required
-              defaultValue={cliente?.tipologia || 'persona_fisica'}
+              value={form.tipologia}
+              onChange={(e) => upd('tipologia', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="persona_fisica">Persona fisica</option>
@@ -53,7 +62,8 @@ export default function FormCliente({
             <select
               name="tipo"
               required
-              defaultValue={cliente?.tipo || 'acquirente'}
+              value={form.tipo}
+              onChange={(e) => upd('tipo', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="venditore">Venditore</option>
@@ -72,14 +82,15 @@ export default function FormCliente({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Nome / Ragione sociale *
+              {isPersonaFisica ? 'Nome *' : 'Ragione sociale *'}
             </label>
             <input
               type="text"
               name="nome"
               required
-              defaultValue={cliente?.nome || ''}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={form.nome}
+              onChange={(e) => upd('nome', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
@@ -89,10 +100,28 @@ export default function FormCliente({
             <input
               type="text"
               name="cognome"
-              defaultValue={cliente?.cognome || ''}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={form.cognome}
+              onChange={(e) => upd('cognome', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+          {isPersonaFisica && (
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Data di nascita
+              </label>
+              <input
+                type="date"
+                name="data_nascita"
+                value={form.data_nascita}
+                onChange={(e) => upd('data_nascita', e.target.value)}
+                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                Utile per la sezione compleanni in dashboard
+              </p>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Codice fiscale
@@ -100,8 +129,9 @@ export default function FormCliente({
             <input
               type="text"
               name="codice_fiscale"
-              defaultValue={cliente?.codice_fiscale || ''}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+              value={form.codice_fiscale}
+              onChange={(e) => upd('codice_fiscale', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
             />
           </div>
           <div>
@@ -111,8 +141,9 @@ export default function FormCliente({
             <input
               type="text"
               name="partita_iva"
-              defaultValue={cliente?.partita_iva || ''}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={form.partita_iva}
+              onChange={(e) => upd('partita_iva', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -129,8 +160,9 @@ export default function FormCliente({
             <input
               type="text"
               name="indirizzo"
-              defaultValue={cliente?.indirizzo || ''}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={form.indirizzo}
+              onChange={(e) => upd('indirizzo', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div className="md:col-span-2">
@@ -140,8 +172,9 @@ export default function FormCliente({
             <input
               type="text"
               name="civico"
-              defaultValue={cliente?.civico || ''}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={form.civico}
+              onChange={(e) => upd('civico', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div className="md:col-span-3">
@@ -151,8 +184,9 @@ export default function FormCliente({
             <input
               type="text"
               name="comune"
-              defaultValue={cliente?.comune || ''}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={form.comune}
+              onChange={(e) => upd('comune', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div className="md:col-span-2">
@@ -163,8 +197,9 @@ export default function FormCliente({
               type="text"
               name="cap"
               maxLength={5}
-              defaultValue={cliente?.cap || ''}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={form.cap}
+              onChange={(e) => upd('cap', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div className="md:col-span-1">
@@ -175,8 +210,9 @@ export default function FormCliente({
               type="text"
               name="provincia"
               maxLength={2}
-              defaultValue={cliente?.provincia || ''}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
+              value={form.provincia}
+              onChange={(e) => upd('provincia', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase"
             />
           </div>
         </div>
@@ -193,8 +229,9 @@ export default function FormCliente({
             <input
               type="tel"
               name="telefono"
-              defaultValue={cliente?.telefono || ''}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={form.telefono}
+              onChange={(e) => upd('telefono', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
@@ -204,8 +241,9 @@ export default function FormCliente({
             <input
               type="email"
               name="email"
-              defaultValue={cliente?.email || ''}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={form.email}
+              onChange={(e) => upd('email', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
@@ -215,8 +253,9 @@ export default function FormCliente({
             <input
               type="email"
               name="pec"
-              defaultValue={cliente?.pec || ''}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={form.pec}
+              onChange={(e) => upd('pec', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -228,13 +267,13 @@ export default function FormCliente({
         <textarea
           name="note"
           rows={4}
-          defaultValue={cliente?.note || ''}
-          className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          value={form.note}
+          onChange={(e) => upd('note', e.target.value)}
+          className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           placeholder="Note aggiuntive..."
         />
       </section>
 
-      {/* BOTTONI */}
       <div className="flex gap-3 justify-end">
         <a
           href={cliente?.id ? `/clienti/${cliente.id}` : '/clienti'}

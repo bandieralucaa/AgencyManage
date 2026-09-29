@@ -28,6 +28,14 @@ export default async function ClientePage({
 
   if (!cliente) notFound()
 
+  function formatData(data: string) {
+    return new Date(data).toLocaleDateString('it-IT', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    })
+  }
+
   return (
     <div className="p-6 lg:p-10">
       <div className="mb-8">
@@ -67,7 +75,10 @@ export default async function ClientePage({
               Modifica
             </Link>
             <ToggleAttivoButton id={id} attivo={cliente.attivo} />
-            <EliminaClienteButton id={id} nome={`${cliente.cognome} ${cliente.nome}`} />
+            <EliminaClienteButton
+              id={id}
+              nome={`${cliente.cognome} ${cliente.nome}`}
+            />
           </div>
         </div>
       </div>
@@ -98,7 +109,8 @@ export default async function ClientePage({
           <p className="text-white">
             {cliente.indirizzo || '—'} {cliente.civico}
             <br />
-            {cliente.cap} {cliente.comune} {cliente.provincia && `(${cliente.provincia})`}
+            {cliente.cap} {cliente.comune}{' '}
+            {cliente.provincia && `(${cliente.provincia})`}
           </p>
         </div>
 
@@ -108,7 +120,9 @@ export default async function ClientePage({
           <dl className="space-y-3 text-sm">
             <div>
               <dt className="text-slate-400">Codice fiscale</dt>
-              <dd className="text-white mt-0.5">{cliente.codice_fiscale || '—'}</dd>
+              <dd className="text-white mt-0.5">
+                {cliente.codice_fiscale || '—'}
+              </dd>
             </div>
             <div>
               <dt className="text-slate-400">Partita IVA</dt>
@@ -116,6 +130,14 @@ export default async function ClientePage({
             </div>
           </dl>
         </div>
+
+        {/* DATA DI NASCITA */}
+        {cliente.tipologia === 'persona_fisica' && cliente.data_nascita && (
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+            <h2 className="text-lg font-semibold mb-4">Data di nascita</h2>
+            <p className="text-white">{formatData(cliente.data_nascita)}</p>
+          </div>
+        )}
 
         {/* NOTE */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
