@@ -30,7 +30,7 @@ export default async function NotiziePage({
   let query = supabase
     .from('notizie')
     .select(`
-      id, tipo, stato, indirizzo, civico, frazione, comune, created_at,
+      id, tipo_notizia, tipo, stato, indirizzo, civico, frazione, comune, created_at,
       agenti (nome, cognome),
       clienti (id, nome, cognome)
     `)
@@ -93,12 +93,12 @@ export default async function NotiziePage({
                   label: n.stato,
                   colore: 'bg-slate-700 text-slate-300',
                 }
+                const isClienteCerca = n.tipo_notizia === 'cliente_cerca'
                 return (
                   <tr
                     key={n.id}
                     className="border-b border-slate-700 last:border-0 hover:bg-slate-700/40 transition-colors"
                   >
-                    {/* DATA + AGENTE */}
                     <td className="px-5 py-3 align-top">
                       <div className="text-sm text-white">
                         {formatData(n.created_at)}
@@ -110,18 +110,26 @@ export default async function NotiziePage({
                       )}
                     </td>
 
-                    {/* NOTIZIA: tipo + indirizzo + cliente + descrizione */}
                     <td className="px-5 py-3 align-top">
-                      <div className="text-sm text-white">
-                        <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300 mr-2">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span
+                          className={`text-xs px-2 py-0.5 rounded font-medium ${
+                            isClienteCerca
+                              ? 'bg-blue-500/20 text-blue-400'
+                              : 'bg-emerald-500/20 text-emerald-400'
+                          }`}
+                        >
+                          {isClienteCerca ? '🔍 Cliente cerca casa' : '🏠 Immobile da vendere'}
+                        </span>
+                        <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">
                           {TIPI[n.tipo] || n.tipo || '—'}
                         </span>
-                        {n.indirizzo && (
-                          <span className="font-medium">
-                            {n.indirizzo} {n.civico}
-                          </span>
-                        )}
                       </div>
+                      {n.indirizzo && (
+                        <div className="text-sm text-white">
+                          {n.indirizzo} {n.civico}
+                        </div>
+                      )}
                       {n.indirizzo && (n.frazione || n.comune) && (
                         <div className="text-xs text-slate-500 mt-0.5">
                           {n.frazione && `${n.frazione}, `}
@@ -141,7 +149,6 @@ export default async function NotiziePage({
                       )}
                     </td>
 
-                    {/* STATO */}
                     <td className="px-5 py-3 align-top">
                       <span
                         className={`text-xs px-2 py-1 rounded whitespace-nowrap ${stato.colore}`}
@@ -150,7 +157,6 @@ export default async function NotiziePage({
                       </span>
                     </td>
 
-                    {/* DETTAGLI */}
                     <td className="px-5 py-3 text-right align-top">
                       <Link
                         href={`/notizie/${n.id}`}

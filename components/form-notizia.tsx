@@ -20,6 +20,7 @@ export default function FormNotizia({
   const [mostraSuggerimentiFrazioni, setMostraSuggerimentiFrazioni] = useState(false)
 
   const [form, setForm] = useState({
+    tipo_notizia: notizia?.tipo_notizia ?? 'cliente_cerca',
     cliente_id: notizia?.cliente_id ?? '',
     tipo: notizia?.tipo ?? 'agenzia',
     indirizzo: notizia?.indirizzo ?? '',
@@ -68,9 +69,49 @@ export default function FormNotizia({
   }
 
   const mostraMotivoChiusura = form.stato.startsWith('chiusa_')
+  const isClienteCerca = form.tipo_notizia === 'cliente_cerca'
+  const isImmobileVendesi = form.tipo_notizia === 'immobile_vendesi'
 
   return (
     <form action={action} className="space-y-8">
+      {/* TIPO NOTIZIA */}
+      <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 className="text-lg font-semibold mb-4">Tipo di notizia *</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => upd('tipo_notizia', 'cliente_cerca')}
+            className={`text-left px-5 py-4 rounded-xl border-2 transition-colors ${
+              isClienteCerca
+                ? 'border-blue-500 bg-blue-500/10'
+                : 'border-slate-700 bg-slate-900 hover:border-slate-600'
+            }`}
+          >
+            <div className="text-2xl mb-1">🔍</div>
+            <div className="font-semibold text-white">Cliente cerca casa</div>
+            <div className="text-xs text-slate-400 mt-1">
+              Un potenziale acquirente o inquilino
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => upd('tipo_notizia', 'immobile_vendesi')}
+            className={`text-left px-5 py-4 rounded-xl border-2 transition-colors ${
+              isImmobileVendesi
+                ? 'border-emerald-500 bg-emerald-500/10'
+                : 'border-slate-700 bg-slate-900 hover:border-slate-600'
+            }`}
+          >
+            <div className="text-2xl mb-1">🏠</div>
+            <div className="font-semibold text-white">Immobile da vendere</div>
+            <div className="text-xs text-slate-400 mt-1">
+              Un immobile che potrebbe entrare in portafoglio
+            </div>
+          </button>
+        </div>
+        <input type="hidden" name="tipo_notizia" value={form.tipo_notizia} />
+      </section>
+
       {/* PROVENIENZA */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">Provenienza</h2>
@@ -116,12 +157,14 @@ export default function FormNotizia({
         </div>
       </section>
 
-      {/* INDIRIZZO (opzionale) */}
+      {/* INDIRIZZO (opzionale, se riguarda un immobile specifico) */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">
           Indirizzo{' '}
           <span className="text-slate-500 text-sm font-normal">
-            (opzionale, se riguarda un immobile specifico)
+            {isImmobileVendesi
+              ? '(dell\'immobile da vendere)'
+              : '(opzionale, se il cliente cerca in una zona specifica)'}
           </span>
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
@@ -146,7 +189,6 @@ export default function FormNotizia({
             />
           </div>
 
-          {/* FRAZIONE */}
           <div className="md:col-span-3 relative">
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Frazione

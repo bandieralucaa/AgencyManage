@@ -46,6 +46,7 @@ export default async function NotiziaPage({
     label: notizia.stato,
     colore: 'bg-slate-700 text-slate-300',
   }
+  const isClienteCerca = notizia.tipo_notizia === 'cliente_cerca'
 
   return (
     <div className="p-6 lg:p-10">
@@ -58,10 +59,22 @@ export default async function NotiziaPage({
             <h1 className="text-3xl font-bold">
               {notizia.indirizzo
                 ? `${notizia.indirizzo} ${notizia.civico || ''}`
-                : 'Notizia'}
+                : isClienteCerca
+                ? 'Cliente cerca casa'
+                : 'Immobile da vendere'}
             </h1>
             <div className="flex items-center gap-3 mt-2 text-sm text-slate-400 flex-wrap">
-              <span className={`text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300`}>
+              <span
+                className={`text-xs px-2 py-0.5 rounded font-medium ${
+                  isClienteCerca
+                    ? 'bg-blue-500/20 text-blue-400'
+                    : 'bg-emerald-500/20 text-emerald-400'
+                }`}
+              >
+                {isClienteCerca ? '🔍 Cliente cerca casa' : '🏠 Immobile da vendere'}
+              </span>
+              <span>·</span>
+              <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">
                 {TIPI[notizia.tipo] || notizia.tipo || '—'}
               </span>
               <span>·</span>

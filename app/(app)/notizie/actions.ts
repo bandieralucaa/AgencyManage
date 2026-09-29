@@ -12,6 +12,7 @@ export async function creaNotizia(formData: FormData) {
   const clienteId = formData.get('cliente_id') as string
 
   const { error } = await supabase.from('notizie').insert({
+    tipo_notizia: (formData.get('tipo_notizia') as string) || 'cliente_cerca',
     agente_id: user.id,
     cliente_id: clienteId || null,
     indirizzo: formData.get('indirizzo') || null,
@@ -35,6 +36,7 @@ export async function aggiornaNotizia(id: string, formData: FormData) {
   const stato = formData.get('stato') as string
 
   const update: any = {
+    tipo_notizia: (formData.get('tipo_notizia') as string) || 'cliente_cerca',
     cliente_id: clienteId || null,
     indirizzo: formData.get('indirizzo') || null,
     civico: formData.get('civico') || null,
