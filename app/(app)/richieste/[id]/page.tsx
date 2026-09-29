@@ -12,12 +12,20 @@ const STATI: Record<string, { label: string; colore: string }> = {
   chiusa_non_cerca_piu: { label: 'Chiusa · Non cerca più', colore: 'bg-slate-700 text-slate-400' },
 }
 
+const CERCA_LABEL: Record<string, string> = {
+  vendita: 'Vendita',
+  locazione: 'Locazione',
+  nuda_proprieta: 'Nuda proprietà',
+}
+
 const STATI_IMMOBILE: Record<string, string> = {
   nuovo: 'Nuovo',
-  ristrutturato: 'Ristrutturato',
+  qualche_lavoro: 'Qualche lavoro',
   buono: 'Buono',
   da_ristrutturare: 'Da ristrutturare',
   rudere: 'Rudere',
+  // retrocompatibilità
+  ristrutturato: 'Ristrutturato',
 }
 
 const TIPI: Record<string, string> = {
@@ -37,14 +45,6 @@ const TIPI: Record<string, string> = {
 function calcolaMatch(richiesta: any, immobile: any) {
   const criteri: { nome: string; ok: boolean }[] = []
 
-  if (richiesta.comuni_cercati && richiesta.comuni_cercati.length > 0) {
-    const ok = richiesta.comuni_cercati.some(
-      (c: string) =>
-        c.toLowerCase().trim() === (immobile.comune || '').toLowerCase().trim()
-    )
-    criteri.push({ nome: 'Comune', ok })
-  }
-
   if (richiesta.frazioni_cercate && richiesta.frazioni_cercate.length > 0) {
     const ok = richiesta.frazioni_cercate.some(
       (f: string) =>
@@ -57,34 +57,50 @@ function calcolaMatch(richiesta: any, immobile: any) {
     criteri.push({ nome: 'Tipologia', ok: richiesta.tipologia.includes(immobile.tipo) })
   }
 
-  if (richiesta.grandezza_min) {
+  // Locali (usa vani come "locali" dell'immobile)
+  if (richiesta.locali_min) {
+    criteri.push({
+      nome: 'Locali min',
+      ok: (immobile.vani || 0) >= richiesta.locali_min,
+    })
+  }
+  if (richiesta.locali_max) {
+    criteri.push({
+      nome: 'Locali max',
+      ok: (immobile.vani || 0) <= richiesta.locali_max,
+    })
+  }
+
+  // Mq
+  if (richiesta.mq_min) {
     criteri.push({
       nome: 'Mq min',
-      ok: (immobile.metri_quadrati || 0) >= richiesta.grandezza_min,
+      ok: (immobile.metri_quadrati || 0) >= richiesta.mq_min,
     })
   }
-  if (richiesta.grandezza_max) {
+  if (richiesta.mq_max) {
     criteri.push({
       nome: 'Mq max',
-      ok: (immobile.metri_quadrati || 0) <= richiesta.grandezza_max,
+      ok: (immobile.metri_quadrati || 0) <= richiesta.mq_max,
     })
-  }
-
-  if (richiesta.camere_min) {
-    criteri.push({ nome: 'Camere', ok: (immobile.camere || 0) >= richiesta.camere_min })
-  }
-
-  if (richiesta.bagni_min) {
-    criteri.push({ nome: 'Bagni', ok: (immobile.bagni || 0) >= richiesta.bagni_min })
   }
 
   if (richiesta.stato_immobile) {
     criteri.push({ nome: 'Stato', ok: immobile.stato === richiesta.stato_immobile })
   }
 
+  if (richiesta.riscaldamento) {
+    criteri.push({
+      nome: 'Riscaldamento',
+      ok: (immobile.riscaldamento || '').toLowerCase() === richiesta.riscaldamento.toLowerCase(),
+    })
+  }
+
   if (richiesta.prezzo_min || richiesta.prezzo_max) {
     const prezzo =
-      richiesta.tipo === 'vendita' ? immobile.prezzo : immobile.prezzo_affitto
+      richiesta.cerca === 'vendita' || richiesta.cerca === 'nuda_proprieta'
+        ? immobile.prezzo
+        : immobile.prezzo_affitto
     if (prezzo) {
       let ok = true
       if (richiesta.prezzo_min && prezzo < richiesta.prezzo_min) ok = false
@@ -137,7 +153,7 @@ export default async function RichiestaPage({
   const { data: immobili } = await supabase
     .from('immobili')
     .select(
-      'id, indirizzo, civico, frazione, comune, tipo, categoria, metri_quadrati, camere, bagni, stato, prezzo, prezzo_affitto'
+      'id, indirizzo, civico, frazione, comune, tipo, categoria, metri_quadrati, vani, camere, bagni, stato, riscaldamento, prezzo, prezzo_affitto'
     )
     .eq('attivo', true)
 
@@ -146,6 +162,25 @@ export default async function RichiestaPage({
     .filter((m) => m.totale > 0 && m.punteggio >= 30)
     .sort((a, b) => b.punteggio - a.punteggio)
     .slice(0, 20)
+
+  function localiRange() {
+    if (richiesta.locali_min && richiesta.locali_max)
+      return `${richiesta.locali_min} - ${richiesta.locali_max} locali`
+    if (richiesta.locali_min) return `da ${richiesta.locali_min} locali`
+    if (richiesta.locali_max) return `fino a ${richiesta.locali_max} locali`
+    return null
+  }
+
+  function mqRange() {
+    if (richiesta.mq_min && richiesta.mq_max)
+      return `${richiesta.mq_min} - ${richiesta.mq_max} mq`
+    if (richiesta.mq_min) return `da ${richiesta.mq_min} mq`
+    if (richiesta.mq_max) return `fino a ${richiesta.mq_max} mq`
+    return null
+  }
+
+  const locali = localiRange()
+  const mq = mqRange()
 
   return (
     <div className="p-6 lg:p-10">
@@ -159,7 +194,7 @@ export default async function RichiestaPage({
               {cli ? `${cli.cognome} ${cli.nome}` : 'Richiesta'}
             </h1>
             <div className="flex items-center gap-3 mt-2 text-sm text-slate-400 flex-wrap">
-              <span className="capitalize">{richiesta.tipo}</span>
+              <span>{CERCA_LABEL[richiesta.cerca] || richiesta.cerca || '—'}</span>
               <span>·</span>
               <span className={`text-xs px-2 py-0.5 rounded ${stato.colore}`}>
                 {stato.label}
@@ -227,36 +262,30 @@ export default async function RichiestaPage({
                 <dd className="text-white mt-0.5">{richiesta.zona_cercata}</dd>
               </div>
             )}
-            {richiesta.comuni_cercati && richiesta.comuni_cercati.length > 0 && (
-              <div>
-                <dt className="text-slate-400">Comuni</dt>
-                <dd className="text-white mt-0.5">{richiesta.comuni_cercati.join(', ')}</dd>
-              </div>
-            )}
             {richiesta.frazioni_cercate && richiesta.frazioni_cercate.length > 0 && (
               <div>
                 <dt className="text-slate-400">Frazioni</dt>
-                <dd className="text-white mt-0.5">
-                  {richiesta.frazioni_cercate.join(', ')}
-                </dd>
+                <dd className="text-white mt-0.5">{richiesta.frazioni_cercate.join(', ')}</dd>
               </div>
             )}
             {richiesta.tipologia && richiesta.tipologia.length > 0 && (
               <div>
                 <dt className="text-slate-400">Tipologia</dt>
-                <dd className="text-white mt-0.5 capitalize">
+                <dd className="text-white mt-0.5">
                   {richiesta.tipologia.map((t: string) => TIPI[t] || t).join(', ')}
                 </dd>
               </div>
             )}
-            {(richiesta.grandezza_min || richiesta.grandezza_max) && (
+            {locali && (
+              <div>
+                <dt className="text-slate-400">N. locali</dt>
+                <dd className="text-white mt-0.5">{locali}</dd>
+              </div>
+            )}
+            {mq && (
               <div>
                 <dt className="text-slate-400">Superficie</dt>
-                <dd className="text-white mt-0.5">
-                  {richiesta.grandezza_min && `${richiesta.grandezza_min} mq`}
-                  {richiesta.grandezza_min && richiesta.grandezza_max && ' - '}
-                  {richiesta.grandezza_max && `${richiesta.grandezza_max} mq`}
-                </dd>
+                <dd className="text-white mt-0.5">{mq}</dd>
               </div>
             )}
             {(richiesta.prezzo_min || richiesta.prezzo_max) && (
@@ -275,46 +304,43 @@ export default async function RichiestaPage({
         </div>
 
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-          <h2 className="text-lg font-semibold mb-4">Caratteristiche desiderate</h2>
+          <h2 className="text-lg font-semibold mb-4">Caratteristiche stabile</h2>
           <dl className="space-y-3 text-sm">
             {richiesta.stato_immobile && (
               <div>
-                <dt className="text-slate-400">Stato immobile</dt>
+                <dt className="text-slate-400">Stato</dt>
                 <dd className="text-white mt-0.5">
                   {STATI_IMMOBILE[richiesta.stato_immobile] || richiesta.stato_immobile}
                 </dd>
               </div>
             )}
-            {richiesta.camere_min && (
+            {richiesta.tipo_stabile && (
               <div>
-                <dt className="text-slate-400">Camere minime</dt>
-                <dd className="text-white mt-0.5">{richiesta.camere_min}</dd>
+                <dt className="text-slate-400">Tipo stabile</dt>
+                <dd className="text-white mt-0.5 capitalize">{richiesta.tipo_stabile}</dd>
               </div>
             )}
-            {richiesta.bagni_min && (
+            {richiesta.riscaldamento && (
               <div>
-                <dt className="text-slate-400">Bagni minimi</dt>
-                <dd className="text-white mt-0.5">{richiesta.bagni_min}</dd>
+                <dt className="text-slate-400">Riscaldamento</dt>
+                <dd className="text-white mt-0.5 capitalize">{richiesta.riscaldamento}</dd>
               </div>
             )}
-            {richiesta.piano_preferito && (
+            {richiesta.accessori && richiesta.accessori.length > 0 && (
               <div>
-                <dt className="text-slate-400">Piano preferito</dt>
-                <dd className="text-white mt-0.5">{richiesta.piano_preferito}</dd>
+                <dt className="text-slate-400">Accessori e pertinenze</dt>
+                <dd className="mt-1.5 flex flex-wrap gap-1.5">
+                  {richiesta.accessori.map((a: string) => (
+                    <span
+                      key={a}
+                      className="text-xs px-2 py-0.5 rounded bg-blue-500/15 text-blue-300"
+                    >
+                      {a}
+                    </span>
+                  ))}
+                </dd>
               </div>
             )}
-            <div>
-              <dt className="text-slate-400">Spazio esterno</dt>
-              <dd className="text-white mt-0.5">
-                {richiesta.spazio_esterno ? '✅ Sì' : '❌ No'}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-slate-400">Box / Garage</dt>
-              <dd className="text-white mt-0.5">
-                {richiesta.box_garage ? '✅ Sì' : '❌ No'}
-              </dd>
-            </div>
           </dl>
         </div>
 
@@ -347,6 +373,7 @@ export default async function RichiestaPage({
         )}
       </div>
 
+      {/* IMMOBILI COMPATIBILI */}
       <div className="mt-10">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <h2 className="text-2xl font-bold">🏠 Immobili compatibili</h2>
@@ -362,7 +389,9 @@ export default async function RichiestaPage({
             {matches.map((m) => {
               const imm = m.immobile
               const prezzo =
-                richiesta.tipo === 'vendita' ? imm.prezzo : imm.prezzo_affitto
+                richiesta.cerca === 'vendita' || richiesta.cerca === 'nuda_proprieta'
+                  ? imm.prezzo
+                  : imm.prezzo_affitto
               return (
                 <div
                   key={imm.id}
@@ -394,16 +423,10 @@ export default async function RichiestaPage({
                             <span>{imm.metri_quadrati} mq</span>
                           </>
                         )}
-                        {imm.camere && (
+                        {imm.vani && (
                           <>
                             <span>·</span>
-                            <span>{imm.camere} camere</span>
-                          </>
-                        )}
-                        {imm.bagni && (
-                          <>
-                            <span>·</span>
-                            <span>{imm.bagni} bagni</span>
+                            <span>{imm.vani} locali</span>
                           </>
                         )}
                         {prezzo && (
@@ -411,7 +434,7 @@ export default async function RichiestaPage({
                             <span>·</span>
                             <span className="text-emerald-400 font-medium">
                               € {Number(prezzo).toLocaleString('it-IT')}
-                              {richiesta.tipo === 'affitto' && '/mese'}
+                              {richiesta.cerca === 'locazione' && '/mese'}
                             </span>
                           </>
                         )}
@@ -459,18 +482,18 @@ export default async function RichiestaPage({
         ) : (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-8 text-center">
             <p className="text-slate-400">
-              {richiesta.comuni_cercati?.length ||
-              richiesta.frazioni_cercate?.length ||
+              {richiesta.frazioni_cercate?.length ||
               richiesta.tipologia?.length ||
-              richiesta.grandezza_min ||
-              richiesta.grandezza_max ||
+              richiesta.locali_min ||
+              richiesta.locali_max ||
+              richiesta.mq_min ||
+              richiesta.mq_max ||
               richiesta.prezzo_min ||
               richiesta.prezzo_max ||
-              richiesta.camere_min ||
-              richiesta.bagni_min ||
-              richiesta.stato_immobile
+              richiesta.stato_immobile ||
+              richiesta.riscaldamento
                 ? 'Nessun immobile in portafoglio corrisponde ai criteri (almeno 30%).'
-                : 'Aggiungi criteri di ricerca alla richiesta (comuni, frazioni, tipologia, budget, ecc.) per vedere i match.'}
+                : 'Aggiungi criteri di ricerca alla richiesta (frazioni, tipologia, budget, ecc.) per vedere i match.'}
             </p>
           </div>
         )}

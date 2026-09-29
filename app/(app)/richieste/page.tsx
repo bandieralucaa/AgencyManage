@@ -11,10 +11,16 @@ const STATI: Record<string, { label: string; colore: string }> = {
   chiusa_non_cerca_piu: { label: 'Chiusa · Non cerca più', colore: 'bg-slate-700 text-slate-400' },
 }
 
+const CERCA_LABEL: Record<string, string> = {
+  vendita: 'Vendita',
+  locazione: 'Locazione',
+  nuda_proprieta: 'Nuda proprietà',
+}
+
 export default async function RichiestePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; tipo?: string; stato?: string }>
+  searchParams: Promise<{ q?: string; cerca?: string; stato?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -22,9 +28,9 @@ export default async function RichiestePage({
   let query = supabase
     .from('richieste')
     .select(`
-      id, tipo, stato, zona_cercata, comuni_cercati,
-      grandezza_min, grandezza_max, prezzo_min, prezzo_max,
-      data_inserimento,
+      id, cerca, stato, zona_cercata, comuni_cercati, frazioni_cercate,
+      locali_min, locali_max, mq_min, mq_max,
+      prezzo_min, prezzo_max, data_inserimento,
       clienti (id, nome, cognome, telefono)
     `)
     .order('data_inserimento', { ascending: false })
@@ -32,7 +38,7 @@ export default async function RichiestePage({
   if (params.q) {
     query = query.or(`zona_cercata.ilike.%${params.q}%`)
   }
-  if (params.tipo) query = query.eq('tipo', params.tipo)
+  if (params.cerca) query = query.eq('cerca', params.cerca)
   if (params.stato) query = query.eq('stato', params.stato)
 
   const { data: richieste } = await query
@@ -54,6 +60,20 @@ export default async function RichiestePage({
     if (min) return `da € ${Number(min).toLocaleString('it-IT')}`
     if (max) return `fino a € ${Number(max).toLocaleString('it-IT')}`
     return 'Budget non specificato'
+  }
+
+  function localiRange(r: any) {
+    if (r.locali_min && r.locali_max) return `${r.locali_min}-${r.locali_max} locali`
+    if (r.locali_min) return `da ${r.locali_min} locali`
+    if (r.locali_max) return `fino a ${r.locali_max} locali`
+    return null
+  }
+
+  function mqRange(r: any) {
+    if (r.mq_min && r.mq_max) return `${r.mq_min}-${r.mq_max} mq`
+    if (r.mq_min) return `da ${r.mq_min} mq`
+    if (r.mq_max) return `fino a ${r.mq_max} mq`
+    return null
   }
 
   return (
@@ -90,6 +110,8 @@ export default async function RichiestePage({
               {richieste.map((r: any) => {
                 const cli = Array.isArray(r.clienti) ? r.clienti[0] : r.clienti
                 const stato = STATI[r.stato] || { label: r.stato, colore: 'bg-slate-700 text-slate-300' }
+                const locali = localiRange(r)
+                const mq = mqRange(r)
                 return (
                   <tr
                     key={r.id}
@@ -108,16 +130,24 @@ export default async function RichiestePage({
                     </td>
 
                     <td className="px-5 py-3 align-top">
-                      <div className="text-sm text-slate-300 capitalize">{r.tipo}</div>
-                      {r.zona_cercata && (
+                      <div className="text-sm text-slate-300">
+                        {CERCA_LABEL[r.cerca] || r.cerca || '—'}
+                      </div>
+                        {r.zona_cercata && (
                         <div className="text-xs text-slate-400 mt-0.5">{r.zona_cercata}</div>
                       )}
-                      {r.comuni_cercati && r.comuni_cercati.length > 0 && (
+                      {r.frazioni_cercate && r.frazioni_cercate.length > 0 && (
                         <div className="text-xs text-slate-500 mt-0.5">
-                          {r.comuni_cercati.join(', ')}
+                          {r.frazioni_cercate.join(', ')}
                         </div>
                       )}
-                      <div className="text-xs text-slate-400 mt-1">{prezzoRange(r)}</div>
+                      <div className="text-xs text-slate-400 mt-1 flex gap-3 flex-wrap">
+                        {locali && <span>{locali}</span>}
+                        {mq && <span>{mq}</span>}
+                      </div>
+                      <div className="text-xs text-slate-400 mt-0.5">
+                        {prezzoRange(r)}
+                      </div>
                     </td>
 
                     <td className="px-5 py-3 align-top">
@@ -159,16 +189,16 @@ export default async function RichiestePage({
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-12 text-center">
           <div className="text-5xl mb-4">🔍</div>
           <h2 className="text-xl font-semibold mb-2">
-            {params.q || params.tipo || params.stato
+            {params.q || params.cerca || params.stato
               ? 'Nessuna richiesta trovata'
               : 'Nessuna richiesta'}
           </h2>
           <p className="text-slate-400 mb-6">
-            {params.q || params.tipo || params.stato
+            {params.q || params.cerca || params.stato
               ? 'Prova a modificare i filtri di ricerca.'
               : 'Inizia aggiungendo la prima richiesta.'}
           </p>
-          {!params.q && !params.tipo && !params.stato && (
+          {!params.q && !params.cerca && !params.stato && (
             <Link
               href="/richieste/nuovo"
               className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors"

@@ -35,6 +35,27 @@ const TIPOLOGIE_LABEL: Record<string, string> = {
 
 const FRAZIONI_DISPONIBILI = ['Altedo', 'Malalbergo', 'Pegola']
 
+const ACCESSORI_DISPONIBILI = [
+  'Box',
+  'Cantina',
+  'Soffitta',
+  'Rustico',
+  'Taverna',
+  'Giardino',
+  'Terrazzo',
+  'Ascensore',
+  'Balcone',
+  'Piscina',
+]
+
+const STATI_IMMOBILE = [
+  { value: 'nuovo', label: 'Nuovo' },
+  { value: 'qualche_lavoro', label: 'Qualche lavoro' },
+  { value: 'buono', label: 'Buono' },
+  { value: 'da_ristrutturare', label: 'Da ristrutturare' },
+  { value: 'rudere', label: 'Rudere' },
+]
+
 export default function FormRichiesta({
   richiesta,
   action,
@@ -53,7 +74,7 @@ export default function FormRichiesta({
 
   const [form, setForm] = useState({
     cliente_id: richiesta?.cliente_id ?? '',
-    tipo: richiesta?.tipo ?? 'vendita',
+    cerca: richiesta?.cerca ?? 'vendita',
     stato: richiesta?.stato ?? 'nuova',
     motivo_chiusura: richiesta?.motivo_chiusura ?? '',
     zona_cercata: richiesta?.zona_cercata ?? '',
@@ -61,16 +82,16 @@ export default function FormRichiesta({
     comune: richiesta?.comuni_cercati?.[0] ?? '',
     cap: richiesta?.cap_cercato ?? '',
     tipologia: (richiesta?.tipologia ?? []).join(', '),
-    grandezza_min: richiesta?.grandezza_min ?? '',
-    grandezza_max: richiesta?.grandezza_max ?? '',
+    locali_min: richiesta?.locali_min ?? '',
+    locali_max: richiesta?.locali_max ?? '',
+    mq_min: richiesta?.mq_min ?? '',
+    mq_max: richiesta?.mq_max ?? '',
+    stato_immobile: richiesta?.stato_immobile ?? '',
+    tipo_stabile: richiesta?.tipo_stabile ?? '',
+    accessori: richiesta?.accessori ?? [],
+    riscaldamento: richiesta?.riscaldamento ?? '',
     prezzo_min: richiesta?.prezzo_min ?? '',
     prezzo_max: richiesta?.prezzo_max ?? '',
-    stato_immobile: richiesta?.stato_immobile ?? '',
-    camere_min: richiesta?.camere_min ?? '',
-    bagni_min: richiesta?.bagni_min ?? '',
-    piano_preferito: richiesta?.piano_preferito ?? '',
-    spazio_esterno: richiesta?.spazio_esterno ?? false,
-    box_garage: richiesta?.box_garage ?? false,
     mutuo: richiesta?.mutuo ?? false,
     mutuo_note: richiesta?.mutuo_note ?? '',
     note: richiesta?.note ?? '',
@@ -78,6 +99,16 @@ export default function FormRichiesta({
 
   function upd<K extends keyof typeof form>(field: K, value: typeof form[K]) {
     setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  function toggleAccessorio(acc: string) {
+    setForm((prev) => {
+      const lista = [...prev.accessori]
+      const idx = lista.indexOf(acc)
+      if (idx >= 0) lista.splice(idx, 1)
+      else lista.push(acc)
+      return { ...prev, accessori: lista }
+    })
   }
 
   useEffect(() => {
@@ -92,9 +123,9 @@ export default function FormRichiesta({
     carica()
   }, [supabase])
 
-  // Auto-compila comune e CAP in base alla prima frazione selezionata
-  async function aggiornaComuneCap() {
-    const parti = form.frazioni_cercate
+  // Auto-compila comune e CAP in base alla PRIMA frazione selezionata
+  async function aggiornaComuneCap(frazioniStr: string) {
+    const parti = frazioniStr
       .split(',')
       .map((f: string) => f.trim())
       .filter(Boolean)
@@ -120,7 +151,6 @@ export default function FormRichiesta({
     }
   }
 
-  // ---------- AUTOCOMPLETE FRAZIONI ----------
   function handleFrazioniChange(valore: string) {
     upd('frazioni_cercate', valore)
     const parti = valore.split(',')
@@ -152,26 +182,10 @@ export default function FormRichiesta({
     setSuggerimentiFrazioni([])
     setMostraSuggerimentiFrazioni(false)
 
-    // Auto-compila comune e CAP
-    const primaFrazione = finale
-      .split(',')
-      .map((f: string) => f.trim())
-      .filter(Boolean)[0]
-    if (primaFrazione) {
-      const { data } = await supabase
-        .from('strade')
-        .select('comune, cap')
-        .eq('frazione', primaFrazione)
-        .limit(1)
-        .single()
-      if (data) {
-        upd('comune', data.comune || '')
-        upd('cap', data.cap || '')
-      }
-    }
+    // Auto-compila comune e CAP dalla prima frazione
+    await aggiornaComuneCap(finale)
   }
 
-  // ---------- AUTOCOMPLETE TIPOLOGIA ----------
   function handleTipologiaChange(valore: string) {
     upd('tipologia', valore)
     const parti = valore.split(',')
@@ -206,9 +220,9 @@ export default function FormRichiesta({
 
   return (
     <form action={action} className="space-y-8">
-      {/* CLIENTE E TIPO */}
+      {/* CLIENTE E RICERCA */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4">Cliente e tipo</h2>
+        <h2 className="text-lg font-semibold mb-4">Cliente e ricerca</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Cliente *</label>
@@ -228,16 +242,17 @@ export default function FormRichiesta({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Tipo *</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Cerca *</label>
             <select
-              name="tipo"
+              name="cerca"
               required
-              value={form.tipo}
-              onChange={(e) => upd('tipo', e.target.value)}
+              value={form.cerca}
+              onChange={(e) => upd('cerca', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="vendita">Vendita</option>
-              <option value="affitto">Affitto</option>
+              <option value="locazione">Locazione</option>
+              <option value="nuda_proprieta">Nuda proprietà</option>
             </select>
           </div>
           <div>
@@ -274,9 +289,9 @@ export default function FormRichiesta({
         )}
       </section>
 
-      {/* COSA CERCA */}
+      {/* ZONA */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4">Cosa cerca</h2>
+        <h2 className="text-lg font-semibold mb-4">Zona richiesta</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-300 mb-2">Zona cercata</label>
@@ -290,7 +305,6 @@ export default function FormRichiesta({
             />
           </div>
 
-          {/* FRAZIONI */}
           <div className="relative">
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Frazioni <span className="text-slate-500 text-xs">(Altedo, Malalbergo, Pegola)</span>
@@ -328,63 +342,60 @@ export default function FormRichiesta({
             )}
           </div>
 
-          {/* TIPOLOGIA */}
-          <div className="relative">
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Tipologia <span className="text-slate-500 text-xs">(separate da virgola)</span>
-            </label>
-            <input
-              type="text"
-              name="tipologia"
-              value={form.tipologia}
-              onChange={(e) => handleTipologiaChange(e.target.value)}
-              onFocus={() => {
-                if (form.tipologia.trim().length > 0) {
-                  handleTipologiaChange(form.tipologia)
-                }
-              }}
-              onBlur={() => setTimeout(() => setMostraSuggerimentiTipologie(false), 200)}
-              autoComplete="off"
-              placeholder="Es. appartamento, villa"
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {mostraSuggerimentiTipologie && suggerimentiTipologie.length > 0 && (
-              <ul className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
-                {suggerimentiTipologie.map((t) => (
-                  <li
-                    key={t}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      selezionaTipologia(t)
-                    }}
-                    className="px-4 py-2 hover:bg-slate-700 cursor-pointer text-white text-sm"
-                  >
-                    {TIPOLOGIE_LABEL[t] || t}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {/* COMUNE (auto-compilato) */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Comune <span className="text-slate-500 text-xs">(auto)</span>
+              Comune <span className="text-slate-500 text-xs">(auto dalla frazione)</span>
             </label>
             <input
               type="text"
               name="comune"
               value={form.comune}
               onChange={(e) => upd('comune', e.target.value)}
-              placeholder="Auto-compilato dalla frazione"
+              placeholder="Auto-compilato"
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
 
-          {/* CAP (auto-compilato) */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Tipologia</label>
+            <div className="relative">
+              <input
+                type="text"
+                name="tipologia"
+                value={form.tipologia}
+                onChange={(e) => handleTipologiaChange(e.target.value)}
+                onFocus={() => {
+                  if (form.tipologia.trim().length > 0) {
+                    handleTipologiaChange(form.tipologia)
+                  }
+                }}
+                onBlur={() => setTimeout(() => setMostraSuggerimentiTipologie(false), 200)}
+                autoComplete="off"
+                placeholder="Es. appartamento, villa"
+                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              {mostraSuggerimentiTipologie && suggerimentiTipologie.length > 0 && (
+                <ul className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
+                  {suggerimentiTipologie.map((t) => (
+                    <li
+                      key={t}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        selezionaTipologia(t)
+                      }}
+                      className="px-4 py-2 hover:bg-slate-700 cursor-pointer text-white text-sm"
+                    >
+                      {TIPOLOGIE_LABEL[t] || t}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              CAP <span className="text-slate-500 text-xs">(auto)</span>
+              CAP <span className="text-slate-500 text-xs">(auto dalla frazione)</span>
             </label>
             <input
               type="text"
@@ -399,22 +410,105 @@ export default function FormRichiesta({
         </div>
       </section>
 
-      {/* DIMENSIONI E PREZZO */}
+      {/* DIMENSIONI */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4">Dimensioni e prezzo</h2>
+        <h2 className="text-lg font-semibold mb-4">Dimensioni</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Mq minimi</label>
-            <input type="number" name="grandezza_min" value={form.grandezza_min}
-              onChange={(e) => upd('grandezza_min', e.target.value)}
+            <label className="block text-sm font-medium text-slate-300 mb-2">N. locali min</label>
+            <input type="number" name="locali_min" value={form.locali_min}
+              onChange={(e) => upd('locali_min', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Mq massimi</label>
-            <input type="number" name="grandezza_max" value={form.grandezza_max}
-              onChange={(e) => upd('grandezza_max', e.target.value)}
+            <label className="block text-sm font-medium text-slate-300 mb-2">N. locali max</label>
+            <input type="number" name="locali_max" value={form.locali_max}
+              onChange={(e) => upd('locali_max', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Mq min</label>
+            <input type="number" name="mq_min" value={form.mq_min}
+              onChange={(e) => upd('mq_min', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Mq max</label>
+            <input type="number" name="mq_max" value={form.mq_max}
+              onChange={(e) => upd('mq_max', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+        </div>
+      </section>
+
+      {/* CARATTERISTICHE STABILE */}
+      <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 className="text-lg font-semibold mb-4">Caratteristiche stabile</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Stato</label>
+            <select name="stato_immobile" value={form.stato_immobile}
+              onChange={(e) => upd('stato_immobile', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Indifferente</option>
+              {STATI_IMMOBILE.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Tipo stabile</label>
+            <select name="tipo_stabile" value={form.tipo_stabile}
+              onChange={(e) => upd('tipo_stabile', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Indifferente</option>
+              <option value="indipendente">Indipendente</option>
+              <option value="condominio">Condominio</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Riscaldamento</label>
+            <select name="riscaldamento" value={form.riscaldamento}
+              onChange={(e) => upd('riscaldamento', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">Indifferente</option>
+              <option value="autonomo">Autonomo</option>
+              <option value="centralizzato">Centralizzato</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      {/* ACCESSORI E PERTINENZE */}
+      <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 className="text-lg font-semibold mb-4">Accessori e pertinenze</h2>
+        <input type="hidden" name="accessori" value={form.accessori.join(',')} />
+        <div className="flex flex-wrap gap-2">
+          {ACCESSORI_DISPONIBILI.map((acc) => {
+            const attivo = form.accessori.includes(acc)
+            return (
+              <button
+                key={acc}
+                type="button"
+                onClick={() => toggleAccessorio(acc)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                  attivo
+                    ? 'bg-blue-600 border-blue-500 text-white'
+                    : 'bg-slate-900 border-slate-600 text-slate-300 hover:border-slate-500'
+                }`}
+              >
+                {attivo && '✓ '}
+                {acc}
+              </button>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* BUDGET */}
+      <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 className="text-lg font-semibold mb-4">Budget</h2>
+        <div className="grid grid-cols-2 gap-4 max-w-md">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Prezzo min €</label>
             <input type="number" name="prezzo_min" value={form.prezzo_min}
@@ -426,61 +520,6 @@ export default function FormRichiesta({
             <input type="number" name="prezzo_max" value={form.prezzo_max}
               onChange={(e) => upd('prezzo_max', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-        </div>
-      </section>
-
-      {/* CARATTERISTICHE DESIDERATE */}
-      <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4">Caratteristiche desiderate</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Stato immobile</label>
-            <select name="stato_immobile" value={form.stato_immobile}
-              onChange={(e) => upd('stato_immobile', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
-              <option value="">Indifferente</option>
-              <option value="nuovo">Nuovo</option>
-              <option value="ristrutturato">Ristrutturato</option>
-              <option value="buono">Buono</option>
-              <option value="da_ristrutturare">Da ristrutturare</option>
-              <option value="rudere">Rudere</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Camere minime</label>
-            <input type="number" name="camere_min" value={form.camere_min}
-              onChange={(e) => upd('camere_min', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Bagni minimi</label>
-            <input type="number" name="bagni_min" value={form.bagni_min}
-              onChange={(e) => upd('bagni_min', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Piano preferito</label>
-            <input type="text" name="piano_preferito" value={form.piano_preferito}
-              onChange={(e) => upd('piano_preferito', e.target.value)}
-              placeholder="Es. alto, terra, indifferente"
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div className="flex items-end">
-            <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none pb-2.5">
-              <input type="checkbox" name="spazio_esterno" checked={form.spazio_esterno}
-                onChange={(e) => upd('spazio_esterno', e.target.checked)}
-                className="w-4 h-4 accent-blue-600" />
-              Spazio esterno (balcone/giardino)
-            </label>
-          </div>
-          <div className="flex items-end">
-            <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none pb-2.5">
-              <input type="checkbox" name="box_garage" checked={form.box_garage}
-                onChange={(e) => upd('box_garage', e.target.checked)}
-                className="w-4 h-4 accent-blue-600" />
-              Box / Garage
-            </label>
           </div>
         </div>
       </section>
