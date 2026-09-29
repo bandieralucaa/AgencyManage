@@ -9,6 +9,7 @@ export type EventoCalendario = {
   luogo?: string
   descrizione?: string
   calendario?: string
+  calendarioId?: string
 }
 
 export type StatoCalendario = {
@@ -16,9 +17,6 @@ export type StatoCalendario = {
   eventi: EventoCalendario[]
 }
 
-/**
- * Recupera un access_token valido per l'agente, rinnovandolo se scaduto.
- */
 async function getAccessToken(agenteId: string): Promise<string | null> {
   const supabase = await createClient()
 
@@ -32,7 +30,6 @@ async function getAccessToken(agenteId: string): Promise<string | null> {
   if (!integrazione) return null
 
   let accessToken = integrazione.access_token
-
   const scadenza = integrazione.expires_at ? new Date(integrazione.expires_at) : null
   const sta_perScadere = scadenza && scadenza.getTime() - Date.now() < 60000
 
@@ -69,9 +66,6 @@ async function getAccessToken(agenteId: string): Promise<string | null> {
   return accessToken
 }
 
-/**
- * Legge gli eventi di OGGI da tutti i calendari dell'utente.
- */
 export async function getStatoCalendario(agenteId: string): Promise<StatoCalendario> {
   const supabase = await createClient()
 
@@ -133,6 +127,7 @@ export async function getStatoCalendario(agenteId: string): Promise<StatoCalenda
       tuttoIlGiorno: !e.start.dateTime,
       luogo: e.location,
       calendario: cal.summary,
+      calendarioId: cal.id,
     }))
 
     tuttiEventi.push(...eventi)
@@ -143,9 +138,6 @@ export async function getStatoCalendario(agenteId: string): Promise<StatoCalenda
   return { connesso: true, eventi: tuttiEventi }
 }
 
-/**
- * Legge tutti gli eventi di un mese (da tutti i calendari).
- */
 export async function getEventiMese(
   agenteId: string,
   anno: number,
@@ -164,10 +156,8 @@ export async function getEventiMese(
   const calendarsData = await calendarsRes.json()
   const calendari = calendarsData.items || []
 
-    const inizio = new Date(anno, mese - 1, 1).toISOString()
-  const fine = new Date(anno, mese + 2, 1).toISOString()
-
-  console.log('🔵 Cerco eventi dal', inizio, 'al', fine)
+  const inizio = new Date(anno, mese, 1).toISOString()
+  const fine = new Date(anno, mese + 1, 1).toISOString()
 
   const tuttiEventi: EventoCalendario[] = []
 
@@ -180,18 +170,14 @@ export async function getEventiMese(
       maxResults: '250',
     })
 
-       const eventsRes = await fetch(
+    const eventsRes = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(cal.id)}/events?${params.toString()}`,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     )
 
-    if (!eventsRes.ok) {
-      console.log('🔴 Errore sul calendario', cal.summary, eventsRes.status)
-      continue
-    }
+    if (!eventsRes.ok) continue
 
     const data = await eventsRes.json()
-    console.log('🔵 Calendario:', cal.summary, '- Eventi trovati:', (data.items || []).length)
     const eventi = (data.items || []).map((e: any) => ({
       id: e.id,
       titolo: e.summary || '(senza titolo)',
@@ -201,6 +187,7 @@ export async function getEventiMese(
       luogo: e.location,
       descrizione: e.description,
       calendario: cal.summary,
+      calendarioId: cal.id,
     }))
 
     tuttiEventi.push(...eventi)
@@ -209,9 +196,6 @@ export async function getEventiMese(
   return tuttiEventi
 }
 
-/**
- * Crea un evento sul calendario "primary".
- */
 export async function creaEvento(
   agenteId: string,
   evento: {
@@ -269,15 +253,14 @@ export async function creaEvento(
       tuttoIlGiorno: !data.start.dateTime,
       luogo: data.location,
       descrizione: data.description,
+      calendarioId: 'primary',
     },
   }
 }
 
-/**
- * Aggiorna un evento del calendario "primary".
- */
 export async function aggiornaEvento(
   agenteId: string,
+  calendarId: string,
   eventId: string,
   evento: {
     titolo: string
@@ -306,7 +289,7 @@ export async function aggiornaEvento(
   }
 
   const res = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${eventId}`,
     {
       method: 'PATCH',
       headers: {
@@ -325,18 +308,16 @@ export async function aggiornaEvento(
   return { ok: true }
 }
 
-/**
- * Elimina un evento dal calendario "primary".
- */
 export async function eliminaEvento(
   agenteId: string,
+  calendarId: string,
   eventId: string
 ): Promise<{ ok: boolean; errore?: string }> {
   const accessToken = await getAccessToken(agenteId)
   if (!accessToken) return { ok: false, errore: 'Non connesso a Google Calendar' }
 
   const res = await fetch(
-    `https://www.googleapis.com/calendar/v3/calendars/primary/events/${eventId}`,
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events/${eventId}`,
     {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${accessToken}` },

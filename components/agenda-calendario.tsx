@@ -11,11 +11,13 @@ type Evento = {
   luogo?: string
   descrizione?: string
   calendario?: string
+  calendarioId?: string
 }
 
 type Modale = {
   aperta: boolean
   id?: string
+  calendarId?: string
   titolo: string
   dataInizio: string
   oraInizio: string
@@ -76,26 +78,17 @@ export default function AgendaCalendario() {
 
   const oggi = new Date()
 
-  // Carica eventi del mese corrente
   useEffect(() => {
-        async function carica() {
+    async function carica() {
       setLoading(true)
       try {
         const res = await fetch(
           `/api/google/events?anno=${dataCorrente.getFullYear()}&mese=${dataCorrente.getMonth()}`
         )
-        const contentType = res.headers.get('content-type')
-        if (!contentType || !contentType.includes('application/json')) {
-          console.error('Risposta non JSON:', await res.text())
-          setEventi([])
-          setLoading(false)
-          return
-        }
         const data = await res.json()
         if (data.eventi) setEventi(data.eventi)
       } catch (err) {
-        console.error('Errore caricamento eventi:', err)
-        setEventi([])
+        console.error(err)
       }
       setLoading(false)
     }
@@ -114,15 +107,11 @@ export default function AgendaCalendario() {
     setDataCorrente(new Date())
   }
 
-  // Genera i 42 giorni (6 settimane) da mostrare
   function generaGiorni(): Date[] {
     const primoDelMese = new Date(dataCorrente.getFullYear(), dataCorrente.getMonth(), 1)
-    // Giorno della settimana del 1° (0 = domenica, 1 = lunedì, ...)
     let giornoSettimana = primoDelMese.getDay()
-    // Converti in "lunedì = 0, domenica = 6"
     giornoSettimana = giornoSettimana === 0 ? 6 : giornoSettimana - 1
 
-    // Parti dal lunedì della settimana del 1° del mese
     const inizio = new Date(primoDelMese)
     inizio.setDate(inizio.getDate() - giornoSettimana)
 
@@ -165,6 +154,7 @@ export default function AgendaCalendario() {
     setModale({
       aperta: true,
       id: evento.id,
+      calendarId: evento.calendarioId || 'primary',
       titolo: evento.titolo,
       dataInizio: formatDataInput(inizio),
       oraInizio: formatOraInput(inizio),
@@ -199,7 +189,9 @@ export default function AgendaCalendario() {
 
     setSalvando(true)
 
-    const url = modale.id ? `/api/google/events/${modale.id}` : '/api/google/events'
+    const url = modale.id
+      ? `/api/google/events/${modale.id}`
+      : '/api/google/events'
     const method = modale.id ? 'PATCH' : 'POST'
 
     const res = await fetch(url, {
@@ -212,6 +204,7 @@ export default function AgendaCalendario() {
         tuttoIlGiorno: modale.tuttoIlGiorno,
         luogo: modale.luogo,
         descrizione: modale.descrizione,
+        calendarId: modale.calendarId,
       }),
     })
 
@@ -223,14 +216,11 @@ export default function AgendaCalendario() {
       return
     }
 
-    // Aggiorna localmente gli eventi (optimistic update)
     if (modale.id && data.evento) {
-      // Modifica: sostituisci l'evento esistente
       setEventi((prev) =>
         prev.map((e) => (e.id === modale.id ? data.evento : e))
       )
     } else if (data.evento) {
-      // Nuovo evento: aggiungilo
       setEventi((prev) => [...prev, data.evento])
     }
 
@@ -243,9 +233,11 @@ export default function AgendaCalendario() {
     if (!confirm('Eliminare questo evento?')) return
 
     setSalvando(true)
-    const res = await fetch(`/api/google/events/${modale.id}`, {
-      method: 'DELETE',
-    })
+
+    const calendarId = modale.calendarId || 'primary'
+    const url = `/api/google/events/${modale.id}?calendarId=${encodeURIComponent(calendarId)}`
+
+    const res = await fetch(url, { method: 'DELETE' })
     const data = await res.json()
 
     if (!res.ok) {
@@ -254,9 +246,9 @@ export default function AgendaCalendario() {
       return
     }
 
+    setEventi((prev) => prev.filter((e) => e.id !== modale.id))
     setModale(MODALE_VUOTA)
     setSalvando(false)
-    setDataCorrente(new Date(dataCorrente))
   }
 
   const giorni = generaGiorni()
@@ -264,20 +256,17 @@ export default function AgendaCalendario() {
   return (
     <>
       <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
-        {/* HEADER NAVIGAZIONE */}
         <div className="flex items-center justify-between p-4 border-b border-slate-700 flex-wrap gap-3">
           <div className="flex items-center gap-2">
             <button
               onClick={mesePrecedente}
               className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-colors"
-              title="Mese precedente"
             >
               ‹
             </button>
             <button
               onClick={meseSuccessivo}
               className="w-9 h-9 flex items-center justify-center rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-colors"
-              title="Mese successivo"
             >
               ›
             </button>
@@ -296,7 +285,6 @@ export default function AgendaCalendario() {
           </div>
         </div>
 
-        {/* GIORNI DELLA SETTIMANA */}
         <div className="grid grid-cols-7 border-b border-slate-700 bg-slate-900">
           {GIORNI_SETTIMANA.map((g) => (
             <div
@@ -308,7 +296,6 @@ export default function AgendaCalendario() {
           ))}
         </div>
 
-        {/* GRIGLIA MESI */}
         <div className="grid grid-cols-7">
           {giorni.map((giorno, i) => {
             const eventiGiorno = eventiDelGiorno(giorno)
@@ -370,7 +357,6 @@ export default function AgendaCalendario() {
         </div>
       </div>
 
-      {/* MODALE */}
       {modale.aperta && (
         <div
           className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4"
@@ -478,7 +464,6 @@ export default function AgendaCalendario() {
                   value={modale.luogo}
                   onChange={(e) => setModale({ ...modale, luogo: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Es. Via Roma 1, Altedo"
                 />
               </div>
 
