@@ -10,7 +10,6 @@ function numOrNull(v: FormDataEntryValue | null) {
   return isNaN(n) ? null : n
 }
 
-// Calcola la categoria dal tipo
 function categoriaDaTipo(tipo: string): string {
   const tipiCasa = ['appartamento', 'villa', 'villetta', 'rustico']
   return tipiCasa.includes(tipo) ? 'casa' : 'non_casa'
@@ -43,6 +42,8 @@ export async function creaImmobile(formData: FormData) {
     classe_energetica: formData.get('classe_energetica') || null,
     riscaldamento: formData.get('riscaldamento') || null,
     anno_costruzione: numOrNull(formData.get('anno_costruzione')),
+    prezzo: numOrNull(formData.get('prezzo')),
+    spese_condominiali: numOrNull(formData.get('spese_condominiali')),
     descrizione: formData.get('descrizione') || null,
     note: formData.get('note') || null,
     agente_id: user.id,
@@ -80,6 +81,8 @@ export async function aggiornaImmobile(id: string, formData: FormData) {
       classe_energetica: formData.get('classe_energetica') || null,
       riscaldamento: formData.get('riscaldamento') || null,
       anno_costruzione: numOrNull(formData.get('anno_costruzione')),
+      prezzo: numOrNull(formData.get('prezzo')),
+      spese_condominiali: numOrNull(formData.get('spese_condominiali')),
       descrizione: formData.get('descrizione') || null,
       note: formData.get('note') || null,
     })

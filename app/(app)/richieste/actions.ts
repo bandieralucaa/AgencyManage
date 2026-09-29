@@ -15,17 +15,26 @@ function arrayOrNull(v: FormDataEntryValue | null) {
   return (v as string).split(',').map((s) => s.trim()).filter(Boolean)
 }
 
+function stringOrNull(v: FormDataEntryValue | null) {
+  if (!v || v === '') return null
+  return v as string
+}
+
 export async function creaRichiesta(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non autenticato')
 
+  const comune = stringOrNull(formData.get('comune'))
+
   const { error } = await supabase.from('richieste').insert({
     cliente_id: formData.get('cliente_id') as string,
     tipo: formData.get('tipo') as string,
-    stato: formData.get('stato') as string || 'nuova',
+    stato: (formData.get('stato') as string) || 'nuova',
     zona_cercata: formData.get('zona_cercata') || null,
-    comuni_cercati: arrayOrNull(formData.get('comuni_cercati')),
+    comuni_cercati: comune ? [comune] : null,
+    frazioni_cercate: arrayOrNull(formData.get('frazioni_cercate')),
+    cap_cercato: stringOrNull(formData.get('cap_cercato')),
     tipologia: arrayOrNull(formData.get('tipologia')),
     grandezza_min: numOrNull(formData.get('grandezza_min')),
     grandezza_max: numOrNull(formData.get('grandezza_max')),
@@ -53,13 +62,16 @@ export async function aggiornaRichiesta(id: string, formData: FormData) {
 
   const stato = formData.get('stato') as string
   const motivoChiusura = formData.get('motivo_chiusura') as string
+  const comune = stringOrNull(formData.get('comune'))
 
   const update: any = {
     cliente_id: formData.get('cliente_id') as string,
     tipo: formData.get('tipo') as string,
     stato,
     zona_cercata: formData.get('zona_cercata') || null,
-    comuni_cercati: arrayOrNull(formData.get('comuni_cercati')),
+    comuni_cercati: comune ? [comune] : null,
+    frazioni_cercate: arrayOrNull(formData.get('frazioni_cercate')),
+    cap_cercato: stringOrNull(formData.get('cap_cercato')),
     tipologia: arrayOrNull(formData.get('tipologia')),
     grandezza_min: numOrNull(formData.get('grandezza_min')),
     grandezza_max: numOrNull(formData.get('grandezza_max')),
@@ -76,7 +88,6 @@ export async function aggiornaRichiesta(id: string, formData: FormData) {
     note: formData.get('note') || null,
   }
 
-  // Se la richiesta è chiusa, imposta data e motivo
   if (stato.startsWith('chiusa_')) {
     update.data_chiusura = new Date().toISOString().split('T')[0]
     update.motivo_chiusura = motivoChiusura || null

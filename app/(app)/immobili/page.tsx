@@ -32,7 +32,7 @@ export default async function ImmobiliPage({
 
   let query = supabase
     .from('immobili')
-    .select('id, tipo, categoria, indirizzo, civico, frazione, comune, metri_quadrati, attivo')
+    .select('id, tipo, categoria, indirizzo, civico, frazione, comune, prezzo, metri_quadrati, attivo')
     .order('created_at', { ascending: false })
 
   if (params.q) {
@@ -44,6 +44,11 @@ export default async function ImmobiliPage({
   if (params.archiviati !== '1') query = query.eq('attivo', true)
 
   const { data: immobili } = await query
+
+  function prezzoLabel(i: any) {
+    if (i.prezzo) return `€ ${Number(i.prezzo).toLocaleString('it-IT')}`
+    return '—'
+  }
 
   return (
     <div className="p-6 lg:p-10">
@@ -73,6 +78,7 @@ export default async function ImmobiliPage({
                 <th className="px-5 py-3 font-medium">Tipo</th>
                 <th className="px-5 py-3 font-medium">Frazione</th>
                 <th className="px-5 py-3 font-medium">Mq</th>
+                <th className="px-5 py-3 font-medium">Prezzo</th>
                 <th className="px-5 py-3 font-medium w-32">Stato</th>
                 <th className="px-5 py-3 font-medium w-24"></th>
               </tr>
@@ -96,6 +102,9 @@ export default async function ImmobiliPage({
                   </td>
                   <td className="px-5 py-3 text-sm text-slate-300">
                     {i.metri_quadrati || '—'}
+                  </td>
+                  <td className="px-5 py-3 text-sm text-slate-300">
+                    {prezzoLabel(i)}
                   </td>
                   <td className="px-5 py-3">
                     <span

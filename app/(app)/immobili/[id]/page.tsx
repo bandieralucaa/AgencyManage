@@ -42,6 +42,11 @@ export default async function ImmobilePage({
 
   if (!immobile) notFound()
 
+  const prezzoMq =
+    immobile.metri_quadrati && immobile.prezzo
+      ? Math.round(immobile.prezzo / immobile.metri_quadrati)
+      : null
+
   return (
     <div className="p-6 lg:p-10">
       <div className="mb-8">
@@ -60,12 +65,6 @@ export default async function ImmobilePage({
               </span>
               <span>·</span>
               <span>{TIPI[immobile.tipo] || immobile.tipo}</span>
-              {immobile.categoria === 'non_casa' && (
-                <>
-                  <span>·</span>
-                  <span>Non casa</span>
-                </>
-              )}
               <span>·</span>
               <span
                 className={`text-xs px-2 py-0.5 rounded ${
@@ -94,7 +93,41 @@ export default async function ImmobilePage({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* PREZZI */}
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+          <h2 className="text-lg font-semibold mb-4">Prezzi</h2>
+          <dl className="space-y-3 text-sm">
+            {immobile.prezzo && (
+              <div>
+                <dt className="text-slate-400">Prezzo vendita</dt>
+                <dd className="text-white mt-0.5 text-lg font-semibold">
+                  € {Number(immobile.prezzo).toLocaleString('it-IT')}
+                </dd>
+              </div>
+            )}
+            {prezzoMq && (
+              <div>
+                <dt className="text-slate-400">Prezzo al mq</dt>
+                <dd className="text-white mt-0.5">
+                  € {prezzoMq.toLocaleString('it-IT')}/mq
+                </dd>
+              </div>
+            )}
+            {immobile.spese_condominiali && (
+              <div>
+                <dt className="text-slate-400">Spese condominiali</dt>
+                <dd className="text-white mt-0.5">
+                  € {Number(immobile.spese_condominiali).toLocaleString('it-IT')}/mese
+                </dd>
+              </div>
+            )}
+            {!immobile.prezzo && !immobile.spese_condominiali && (
+              <p className="text-slate-500">Nessun prezzo inserito.</p>
+            )}
+          </dl>
+        </div>
+
         {/* CARATTERISTICHE */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Caratteristiche</h2>
@@ -187,7 +220,6 @@ export default async function ImmobilePage({
           </dl>
         </div>
 
-        {/* DESCRIZIONE */}
         {immobile.descrizione && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 lg:col-span-2">
             <h2 className="text-lg font-semibold mb-4">Descrizione</h2>
@@ -197,7 +229,6 @@ export default async function ImmobilePage({
           </div>
         )}
 
-        {/* NOTE */}
         {immobile.note && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h2 className="text-lg font-semibold mb-4">Note interne</h2>

@@ -5,6 +5,36 @@ import { createClient } from '@/lib/supabase/client'
 
 type Cliente = { id: string; nome: string; cognome: string }
 
+const TIPOLOGIE_DISPONIBILI = [
+  'appartamento',
+  'villa',
+  'villetta',
+  'rustico',
+  'terreno',
+  'ufficio',
+  'negozio',
+  'magazzino',
+  'garage',
+  'box',
+  'altro',
+]
+
+const TIPOLOGIE_LABEL: Record<string, string> = {
+  appartamento: 'Appartamento',
+  villa: 'Villa',
+  villetta: 'Villetta',
+  rustico: 'Rustico',
+  terreno: 'Terreno',
+  ufficio: 'Ufficio',
+  negozio: 'Negozio',
+  magazzino: 'Magazzino',
+  garage: 'Garage',
+  box: 'Box',
+  altro: 'Altro',
+}
+
+const FRAZIONI_DISPONIBILI = ['Altedo', 'Malalbergo', 'Pegola']
+
 export default function FormRichiesta({
   richiesta,
   action,
@@ -15,13 +45,21 @@ export default function FormRichiesta({
   const supabase = createClient()
   const [clienti, setClienti] = useState<Cliente[]>([])
 
+  const [suggerimentiFrazioni, setSuggerimentiFrazioni] = useState<string[]>([])
+  const [mostraSuggerimentiFrazioni, setMostraSuggerimentiFrazioni] = useState(false)
+
+  const [suggerimentiTipologie, setSuggerimentiTipologie] = useState<string[]>([])
+  const [mostraSuggerimentiTipologie, setMostraSuggerimentiTipologie] = useState(false)
+
   const [form, setForm] = useState({
     cliente_id: richiesta?.cliente_id ?? '',
     tipo: richiesta?.tipo ?? 'vendita',
     stato: richiesta?.stato ?? 'nuova',
     motivo_chiusura: richiesta?.motivo_chiusura ?? '',
     zona_cercata: richiesta?.zona_cercata ?? '',
-    comuni_cercati: (richiesta?.comuni_cercati ?? []).join(', '),
+    frazioni_cercate: (richiesta?.frazioni_cercate ?? []).join(', '),
+    comune: richiesta?.comuni_cercati?.[0] ?? '',
+    cap: richiesta?.cap_cercato ?? '',
     tipologia: (richiesta?.tipologia ?? []).join(', '),
     grandezza_min: richiesta?.grandezza_min ?? '',
     grandezza_max: richiesta?.grandezza_max ?? '',
@@ -38,8 +76,12 @@ export default function FormRichiesta({
     note: richiesta?.note ?? '',
   })
 
+  function upd<K extends keyof typeof form>(field: K, value: typeof form[K]) {
+    setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
   useEffect(() => {
-    async function caricaClienti() {
+    async function carica() {
       const { data } = await supabase
         .from('clienti')
         .select('id, nome, cognome')
@@ -47,11 +89,117 @@ export default function FormRichiesta({
         .order('cognome', { ascending: true })
       if (data) setClienti(data)
     }
-    caricaClienti()
+    carica()
   }, [supabase])
 
-  function upd<K extends keyof typeof form>(field: K, value: typeof form[K]) {
-    setForm((prev) => ({ ...prev, [field]: value }))
+  // Auto-compila comune e CAP in base alla prima frazione selezionata
+  async function aggiornaComuneCap() {
+    const parti = form.frazioni_cercate
+      .split(',')
+      .map((f) => f.trim())
+      .filter(Boolean)
+
+    if (parti.length === 0) {
+      upd('comune', '')
+      upd('cap', '')
+      return
+    }
+
+    const primaFrazione = parti[0]
+
+    const { data } = await supabase
+      .from('strade')
+      .select('comune, cap')
+      .eq('frazione', primaFrazione)
+      .limit(1)
+      .single()
+
+    if (data) {
+      upd('comune', data.comune || '')
+      upd('cap', data.cap || '')
+    }
+  }
+
+  // ---------- AUTOCOMPLETE FRAZIONI ----------
+  function handleFrazioniChange(valore: string) {
+    upd('frazioni_cercate', valore)
+    const parti = valore.split(',')
+    const ultima = parti[parti.length - 1].trim().toLowerCase()
+    if (ultima.length < 1) {
+      setSuggerimentiFrazioni([])
+      setMostraSuggerimentiFrazioni(false)
+      return
+    }
+    const giaInseriti = parti
+      .slice(0, -1)
+      .map((p) => p.trim().toLowerCase())
+      .filter(Boolean)
+    const filtrati = FRAZIONI_DISPONIBILI.filter(
+      (f) =>
+        f.toLowerCase().startsWith(ultima) &&
+        !giaInseriti.includes(f.toLowerCase())
+    )
+    setSuggerimentiFrazioni(filtrati)
+    setMostraSuggerimentiFrazioni(true)
+  }
+
+  async function selezionaFrazione(frazione: string) {
+    const parti = form.frazioni_cercate.split(',')
+    parti[parti.length - 1] = ` ${frazione}`
+    const nuovo = parti.join(',').replace(/^\s*,/, '')
+    const finale = nuovo + ', '
+    upd('frazioni_cercate', finale)
+    setSuggerimentiFrazioni([])
+    setMostraSuggerimentiFrazioni(false)
+
+    // Auto-compila comune e CAP
+    const primaFrazione = finale
+      .split(',')
+      .map((f) => f.trim())
+      .filter(Boolean)[0]
+    if (primaFrazione) {
+      const { data } = await supabase
+        .from('strade')
+        .select('comune, cap')
+        .eq('frazione', primaFrazione)
+        .limit(1)
+        .single()
+      if (data) {
+        upd('comune', data.comune || '')
+        upd('cap', data.cap || '')
+      }
+    }
+  }
+
+  // ---------- AUTOCOMPLETE TIPOLOGIA ----------
+  function handleTipologiaChange(valore: string) {
+    upd('tipologia', valore)
+    const parti = valore.split(',')
+    const ultima = parti[parti.length - 1].trim().toLowerCase()
+    if (ultima.length < 1) {
+      setSuggerimentiTipologie([])
+      setMostraSuggerimentiTipologie(false)
+      return
+    }
+    const giaInseriti = parti
+      .slice(0, -1)
+      .map((p) => p.trim().toLowerCase())
+      .filter(Boolean)
+    const filtrati = TIPOLOGIE_DISPONIBILI.filter(
+      (t) =>
+        t.toLowerCase().startsWith(ultima) && !giaInseriti.includes(t.toLowerCase())
+    )
+    setSuggerimentiTipologie(filtrati)
+    setMostraSuggerimentiTipologie(true)
+  }
+
+  function selezionaTipologia(tip: string) {
+    const parti = form.tipologia.split(',')
+    parti[parti.length - 1] = ` ${tip}`
+    const nuovo = parti.join(',').replace(/^\s*,/, '')
+    upd('tipologia', nuovo + ', ')
+    setSuggerimentiTipologie([])
+    setMostraSuggerimentiTipologie(false)
   }
 
   const mostraMotivoChiusura = form.stato.startsWith('chiusa_')
@@ -141,20 +289,47 @@ export default function FormRichiesta({
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div className="md:col-span-2">
+
+          {/* FRAZIONI */}
+          <div className="relative">
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Comuni cercati <span className="text-slate-500 text-xs">(separati da virgola)</span>
+              Frazioni <span className="text-slate-500 text-xs">(Altedo, Malalbergo, Pegola)</span>
             </label>
             <input
               type="text"
-              name="comuni_cercati"
-              value={form.comuni_cercati}
-              onChange={(e) => upd('comuni_cercati', e.target.value)}
-              placeholder="Es. Altedo, Malalbergo, Pegola"
+              name="frazioni_cercate"
+              value={form.frazioni_cercate}
+              onChange={(e) => handleFrazioniChange(e.target.value)}
+              onFocus={() => {
+                if (form.frazioni_cercate.trim().length > 0) {
+                  handleFrazioniChange(form.frazioni_cercate)
+                }
+              }}
+              onBlur={() => setTimeout(() => setMostraSuggerimentiFrazioni(false), 200)}
+              autoComplete="off"
+              placeholder="Es. Altedo, Pegola"
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            {mostraSuggerimentiFrazioni && suggerimentiFrazioni.length > 0 && (
+              <ul className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
+                {suggerimentiFrazioni.map((f) => (
+                  <li
+                    key={f}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      selezionaFrazione(f)
+                    }}
+                    className="px-4 py-2 hover:bg-slate-700 cursor-pointer text-white text-sm"
+                  >
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-          <div className="md:col-span-2">
+
+          {/* TIPOLOGIA */}
+          <div className="relative">
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Tipologia <span className="text-slate-500 text-xs">(separate da virgola)</span>
             </label>
@@ -162,8 +337,62 @@ export default function FormRichiesta({
               type="text"
               name="tipologia"
               value={form.tipologia}
-              onChange={(e) => upd('tipologia', e.target.value)}
-              placeholder="Es. appartamento, villa, villetta"
+              onChange={(e) => handleTipologiaChange(e.target.value)}
+              onFocus={() => {
+                if (form.tipologia.trim().length > 0) {
+                  handleTipologiaChange(form.tipologia)
+                }
+              }}
+              onBlur={() => setTimeout(() => setMostraSuggerimentiTipologie(false), 200)}
+              autoComplete="off"
+              placeholder="Es. appartamento, villa"
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {mostraSuggerimentiTipologie && suggerimentiTipologie.length > 0 && (
+              <ul className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
+                {suggerimentiTipologie.map((t) => (
+                  <li
+                    key={t}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      selezionaTipologia(t)
+                    }}
+                    className="px-4 py-2 hover:bg-slate-700 cursor-pointer text-white text-sm"
+                  >
+                    {TIPOLOGIE_LABEL[t] || t}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* COMUNE (auto-compilato) */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Comune <span className="text-slate-500 text-xs">(auto)</span>
+            </label>
+            <input
+              type="text"
+              name="comune"
+              value={form.comune}
+              onChange={(e) => upd('comune', e.target.value)}
+              placeholder="Auto-compilato dalla frazione"
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* CAP (auto-compilato) */}
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              CAP <span className="text-slate-500 text-xs">(auto)</span>
+            </label>
+            <input
+              type="text"
+              name="cap_cercato"
+              maxLength={5}
+              value={form.cap}
+              onChange={(e) => upd('cap', e.target.value)}
+              placeholder="Auto-compilato"
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

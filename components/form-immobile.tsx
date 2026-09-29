@@ -3,61 +3,80 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-type ImmobileData = any
-
 export default function FormImmobile({
   immobile,
   action,
 }: {
-  immobile?: ImmobileData
+  immobile?: any
   action: (formData: FormData) => void | Promise<void>
 }) {
   const supabase = createClient()
-  const [via, setVia] = useState(immobile?.indirizzo || '')
-  const [civico, setCivico] = useState(immobile?.civico || '')
-  const [comune, setComune] = useState(immobile?.comune || '')
-  const [frazione, setFrazione] = useState(immobile?.frazione || '')
-  const [cap, setCap] = useState(immobile?.cap || '')
   const [suggerimenti, setSuggerimenti] = useState<string[]>([])
   const [mostraSuggerimenti, setMostraSuggerimenti] = useState(false)
 
+  const [form, setForm] = useState({
+    tipo: immobile?.tipo ?? 'appartamento',
+    categoria: immobile?.categoria ?? 'casa',
+    indirizzo: immobile?.indirizzo ?? '',
+    civico: immobile?.civico ?? '',
+    frazione: immobile?.frazione ?? '',
+    comune: immobile?.comune ?? '',
+    cap: immobile?.cap ?? '',
+    provincia: immobile?.provincia ?? 'BO',
+    piano: immobile?.piano ?? '',
+    interno: immobile?.interno ?? '',
+    scala: immobile?.scala ?? '',
+    metri_quadrati: immobile?.metri_quadrati ?? '',
+    vani: immobile?.vani ?? '',
+    camere: immobile?.camere ?? '',
+    bagni: immobile?.bagni ?? '',
+    stato: immobile?.stato ?? '',
+    classe_energetica: immobile?.classe_energetica ?? '',
+    riscaldamento: immobile?.riscaldamento ?? '',
+    anno_costruzione: immobile?.anno_costruzione ?? '',
+    prezzo: immobile?.prezzo ?? '',
+    spese_condominiali: immobile?.spese_condominiali ?? '',
+    descrizione: immobile?.descrizione ?? '',
+    note: immobile?.note ?? '',
+  })
+
+  function upd<K extends keyof typeof form>(field: K, value: typeof form[K]) {
+    setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  // Autocomplete via
   useEffect(() => {
-    if (via.length < 2) {
+    if (form.indirizzo.length < 2) {
       setSuggerimenti([])
       return
     }
-
     const timer = setTimeout(async () => {
       const { data } = await supabase
         .from('strade')
         .select('via')
-        .ilike('via', `%${via}%`)
+        .ilike('via', `%${form.indirizzo}%`)
         .limit(50)
-
       if (data) {
         const vieUniche = [...new Set(data.map((d) => d.via))]
         setSuggerimenti(vieUniche.slice(0, 10))
       }
     }, 200)
-
     return () => clearTimeout(timer)
-  }, [via, supabase])
+  }, [form.indirizzo, supabase])
 
   async function selezionaVia(viaSelezionata: string) {
-    setVia(viaSelezionata)
+    upd('indirizzo', viaSelezionata)
     setMostraSuggerimenti(false)
-
     const { data } = await supabase
       .from('strade')
       .select('comune, frazione, cap')
       .eq('via', viaSelezionata)
       .limit(1)
       .single()
-
     if (data) {
-      setComune(data.comune || '')
-      setFrazione(data.frazione || '')
-      setCap(data.cap || '')
+      upd('comune', data.comune || '')
+      upd('frazione', data.frazione || '')
+      upd('cap', data.cap || '')
     }
   }
 
@@ -68,8 +87,13 @@ export default function FormImmobile({
         <h2 className="text-lg font-semibold mb-4">Classificazione</h2>
         <div>
           <label className="block text-sm font-medium text-slate-300 mb-2">Tipo *</label>
-          <select name="tipo" required defaultValue={immobile?.tipo || 'appartamento'}
-            className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <select
+            name="tipo"
+            required
+            value={form.tipo}
+            onChange={(e) => upd('tipo', e.target.value)}
+            className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
             <option value="appartamento">Appartamento</option>
             <option value="villa">Villa</option>
             <option value="villetta">Villetta</option>
@@ -95,9 +119,9 @@ export default function FormImmobile({
               type="text"
               name="indirizzo"
               required
-              value={via}
+              value={form.indirizzo}
               onChange={(e) => {
-                setVia(e.target.value)
+                upd('indirizzo', e.target.value)
                 setMostraSuggerimenti(true)
               }}
               onFocus={() => setMostraSuggerimenti(true)}
@@ -111,7 +135,10 @@ export default function FormImmobile({
                 {suggerimenti.map((s) => (
                   <li
                     key={s}
-                    onClick={() => selezionaVia(s)}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      selezionaVia(s)
+                    }}
                     className="px-4 py-2 hover:bg-slate-700 cursor-pointer text-white text-sm"
                   >
                     {s}
@@ -123,49 +150,57 @@ export default function FormImmobile({
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-300 mb-2">Civico</label>
-            <input type="text" name="civico" value={civico} onChange={(e) => setCivico(e.target.value)}
+            <input type="text" name="civico" value={form.civico}
+              onChange={(e) => upd('civico', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-300 mb-2">Frazione</label>
-            <input type="text" name="frazione" value={frazione} onChange={(e) => setFrazione(e.target.value)}
+            <input type="text" name="frazione" value={form.frazione}
+              onChange={(e) => upd('frazione', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
           <div className="md:col-span-3">
             <label className="block text-sm font-medium text-slate-300 mb-2">Comune *</label>
-            <input type="text" name="comune" required value={comune} onChange={(e) => setComune(e.target.value)}
+            <input type="text" name="comune" required value={form.comune}
+              onChange={(e) => upd('comune', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
           <div className="md:col-span-1">
             <label className="block text-sm font-medium text-slate-300 mb-2">CAP</label>
-            <input type="text" name="cap" maxLength={5} value={cap} onChange={(e) => setCap(e.target.value)}
+            <input type="text" name="cap" maxLength={5} value={form.cap}
+              onChange={(e) => upd('cap', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-300 mb-2">Provincia</label>
-            <input type="text" name="provincia" maxLength={2} defaultValue={immobile?.provincia || 'BO'}
+            <input type="text" name="provincia" maxLength={2} value={form.provincia}
+              onChange={(e) => upd('provincia', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" />
           </div>
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-300 mb-2">Piano</label>
-            <input type="text" name="piano" defaultValue={immobile?.piano || ''}
+            <input type="text" name="piano" value={form.piano}
+              onChange={(e) => upd('piano', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-300 mb-2">Interno</label>
-            <input type="text" name="interno" defaultValue={immobile?.interno || ''}
+            <input type="text" name="interno" value={form.interno}
+              onChange={(e) => upd('interno', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-300 mb-2">Scala</label>
-            <input type="text" name="scala" defaultValue={immobile?.scala || ''}
+            <input type="text" name="scala" value={form.scala}
+              onChange={(e) => upd('scala', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
@@ -177,27 +212,32 @@ export default function FormImmobile({
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Mq</label>
-            <input type="number" name="metri_quadrati" defaultValue={immobile?.metri_quadrati || ''}
+            <input type="number" name="metri_quadrati" value={form.metri_quadrati}
+              onChange={(e) => upd('metri_quadrati', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Vani</label>
-            <input type="number" name="vani" defaultValue={immobile?.vani || ''}
+            <input type="number" name="vani" value={form.vani}
+              onChange={(e) => upd('vani', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Camere</label>
-            <input type="number" name="camere" defaultValue={immobile?.camere || ''}
+            <input type="number" name="camere" value={form.camere}
+              onChange={(e) => upd('camere', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Bagni</label>
-            <input type="number" name="bagni" defaultValue={immobile?.bagni || ''}
+            <input type="number" name="bagni" value={form.bagni}
+              onChange={(e) => upd('bagni', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Stato</label>
-            <select name="stato" defaultValue={immobile?.stato || ''}
+            <select name="stato" value={form.stato}
+              onChange={(e) => upd('stato', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
               <option value="">—</option>
               <option value="nuovo">Nuovo</option>
@@ -209,17 +249,43 @@ export default function FormImmobile({
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Classe energ.</label>
-            <input type="text" name="classe_energetica" defaultValue={immobile?.classe_energetica || ''}
+            <input type="text" name="classe_energetica" value={form.classe_energetica}
+              onChange={(e) => upd('classe_energetica', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Riscaldamento</label>
-            <input type="text" name="riscaldamento" defaultValue={immobile?.riscaldamento || ''}
+            <input type="text" name="riscaldamento" value={form.riscaldamento}
+              onChange={(e) => upd('riscaldamento', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Anno</label>
-            <input type="number" name="anno_costruzione" defaultValue={immobile?.anno_costruzione || ''}
+            <input type="number" name="anno_costruzione" value={form.anno_costruzione}
+              onChange={(e) => upd('anno_costruzione', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+        </div>
+      </section>
+
+      {/* PREZZI */}
+      <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 className="text-lg font-semibold mb-4">Prezzi</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Prezzo di vendita €
+            </label>
+            <input type="number" name="prezzo" value={form.prezzo}
+              onChange={(e) => upd('prezzo', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Spese condominiali €/mese <span className="text-slate-500 text-xs">(opzionale)</span>
+            </label>
+            <input type="number" name="spese_condominiali" value={form.spese_condominiali}
+              onChange={(e) => upd('spese_condominiali', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
@@ -231,12 +297,14 @@ export default function FormImmobile({
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Descrizione</label>
-            <textarea name="descrizione" rows={4} defaultValue={immobile?.descrizione || ''}
+            <textarea name="descrizione" rows={4} value={form.descrizione}
+              onChange={(e) => upd('descrizione', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Note interne</label>
-            <textarea name="note" rows={3} defaultValue={immobile?.note || ''}
+            <textarea name="note" rows={3} value={form.note}
+              onChange={(e) => upd('note', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
