@@ -6,15 +6,12 @@ import { redirect } from 'next/navigation'
 
 /**
  * NOTIZIA → VALUTAZIONE
- * Crea una nuova valutazione a partire da una notizia,
- * copiando indirizzo, cliente, comune, ecc.
  */
 export async function notiziaToValutazione(notiziaId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non autenticato')
 
-  // Leggi la notizia
   const { data: notizia } = await supabase
     .from('notizie')
     .select('*')
@@ -23,7 +20,6 @@ export async function notiziaToValutazione(notiziaId: string) {
 
   if (!notizia) throw new Error('Notizia non trovata')
 
-  // Crea la valutazione
   const { data: nuovaValutazione, error } = await supabase
     .from('valutazioni')
     .insert({
@@ -34,7 +30,6 @@ export async function notiziaToValutazione(notiziaId: string) {
       civico: notizia.civico,
       frazione: notizia.frazione,
       comune: notizia.comune,
-      cap: null,
       data_valutazione: new Date().toISOString().split('T')[0],
       stato: 'da_fare',
     })
@@ -43,7 +38,6 @@ export async function notiziaToValutazione(notiziaId: string) {
 
   if (error) throw new Error(error.message)
 
-  // Aggiorna lo stato della notizia
   await supabase
     .from('notizie')
     .update({ stato: 'in_lavorazione' })
@@ -56,14 +50,12 @@ export async function notiziaToValutazione(notiziaId: string) {
 
 /**
  * VALUTAZIONE → INCARICO
- * Crea un nuovo incarico a partire da una valutazione.
  */
 export async function valutazioneToIncarico(valutazioneId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non autenticato')
 
-  // Leggi la valutazione
   const { data: valutazione } = await supabase
     .from('valutazioni')
     .select('*')
@@ -72,12 +64,10 @@ export async function valutazioneToIncarico(valutazioneId: string) {
 
   if (!valutazione) throw new Error('Valutazione non trovata')
 
-  // Calcola scadenza a +1 anno
   const oggi = new Date()
   const scadenza = new Date(oggi)
   scadenza.setFullYear(scadenza.getFullYear() + 1)
 
-  // Crea l'incarico
   const { data: nuovoIncarico, error } = await supabase
     .from('incarichi')
     .insert({
@@ -96,7 +86,6 @@ export async function valutazioneToIncarico(valutazioneId: string) {
 
   if (error) throw new Error(error.message)
 
-  // Aggiorna lo stato della valutazione
   await supabase
     .from('valutazioni')
     .update({ stato: 'seguita' })
@@ -109,44 +98,49 @@ export async function valutazioneToIncarico(valutazioneId: string) {
 
 /**
  * INCARICO → IMMOBILE
- * Porta in portafoglio: crea un immobile a partire da un incarico.
  */
 export async function incaricoToImmobile(incaricoId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non autenticato')
 
-  // Leggi l'incarico con la valutazione collegata
+  // 1. Leggi l'incarico
   const { data: incarico } = await supabase
     .from('incarichi')
-    .select(`
-      *,
-      valutazioni (*)
-    `)
+    .select('*')
     .eq('id', incaricoId)
     .single()
 
   if (!incarico) throw new Error('Incarico non trovato')
 
-  const val = Array.isArray(incarico.valutazioni)
-    ? incarico.valutazioni[0]
-    : incarico.valutazioni
+  // 2. Leggi la valutazione separatamente
+  if (!incarico.valutazione_id) {
+    throw new Error('Impossibile creare l\'immobile: manca la valutazione collegata')
+  }
 
-  if (!val) throw new Error('Impossibile creare l\'immobile: manca la valutazione collegata')
+  const { data: valutazione } = await supabase
+    .from('valutazioni')
+    .select('*')
+    .eq('id', incarico.valutazione_id)
+    .single()
 
-  // Crea l'immobile
+  if (!valutazione) {
+    throw new Error('Valutazione non trovata')
+  }
+
+  // 3. Crea l'immobile
   const { data: nuovoImmobile, error } = await supabase
     .from('immobili')
     .insert({
       incarico_id: incaricoId,
       tipo: 'appartamento',
       categoria: 'casa',
-      indirizzo: val.indirizzo,
-      civico: val.civico,
-      frazione: val.frazione,
-      comune: val.comune,
-      cap: val.cap,
-      metri_quadrati: val.metratura,
+      indirizzo: valutazione.indirizzo,
+      civico: valutazione.civico,
+      frazione: valutazione.frazione,
+      comune: valutazione.comune,
+      cap: valutazione.cap,
+      metri_quadrati: valutazione.metratura,
       prezzo: incarico.prezzo,
       agente_id: user.id,
     })
