@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import EliminaClienteButton from './elimina-button'
 import ToggleAttivoButton from './toggle-attivo-button'
+import SezioneAttivita from '@/components/sezione-attivita'
 
 const TIPI: Record<string, string> = {
   venditore: 'Venditore',
@@ -27,6 +28,12 @@ export default async function ClientePage({
     .single()
 
   if (!cliente) notFound()
+
+  const { data: attivita } = await supabase
+    .from('attivita')
+    .select('*, agenti (nome, cognome)')
+    .eq('cliente_id', id)
+    .order('data_attivita', { ascending: false })
 
   function formatData(data: string) {
     return new Date(data).toLocaleDateString('it-IT', {
@@ -84,7 +91,6 @@ export default async function ClientePage({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* CONTATTI */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Contatti</h2>
           <dl className="space-y-3 text-sm">
@@ -103,7 +109,6 @@ export default async function ClientePage({
           </dl>
         </div>
 
-        {/* INDIRIZZO */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Indirizzo</h2>
           <p className="text-white">
@@ -114,7 +119,6 @@ export default async function ClientePage({
           </p>
         </div>
 
-        {/* DATI FISCALI */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Dati fiscali</h2>
           <dl className="space-y-3 text-sm">
@@ -131,7 +135,6 @@ export default async function ClientePage({
           </dl>
         </div>
 
-        {/* DATA DI NASCITA */}
         {cliente.tipologia === 'persona_fisica' && cliente.data_nascita && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h2 className="text-lg font-semibold mb-4">Data di nascita</h2>
@@ -139,7 +142,6 @@ export default async function ClientePage({
           </div>
         )}
 
-        {/* NOTE */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Note</h2>
           <p className="text-sm text-slate-300 whitespace-pre-wrap">
@@ -147,6 +149,13 @@ export default async function ClientePage({
           </p>
         </div>
       </div>
+
+      {/* ATTIVITÀ */}
+      <SezioneAttivita
+        entita="cliente"
+        entitaId={id}
+        attivita={attivita || []}
+      />
     </div>
   )
 }

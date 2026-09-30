@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import EliminaIncaricoButton from './elimina-button'
+import SezioneAttivita from '@/components/sezione-attivita'
 
 const STATI: Record<string, { label: string; colore: string }> = {
   attivo: { label: '🟢 Attivo', colore: 'bg-emerald-500/20 text-emerald-400' },
@@ -35,6 +36,12 @@ export default async function IncaricoPage({
     .single()
 
   if (!incarico) notFound()
+
+  const { data: attivita } = await supabase
+    .from('attivita')
+    .select('*, agenti (nome, cognome)')
+    .eq('incarico_id', id)
+    .order('data_attivita', { ascending: false })
 
   const imm = Array.isArray(incarico.immobili) ? incarico.immobili[0] : incarico.immobili
   const cli = Array.isArray(incarico.clienti) ? incarico.clienti[0] : incarico.clienti
@@ -114,7 +121,6 @@ export default async function IncaricoPage({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* IMMOBILE */}
         {imm && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h2 className="text-lg font-semibold mb-4">Immobile</h2>
@@ -138,7 +144,6 @@ export default async function IncaricoPage({
           </div>
         )}
 
-        {/* CLIENTE */}
         {cli && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h2 className="text-lg font-semibold mb-4">Cliente venditore</h2>
@@ -167,7 +172,6 @@ export default async function IncaricoPage({
           </div>
         )}
 
-        {/* DETTAGLI */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Dettagli incarico</h2>
           <dl className="space-y-3 text-sm">
@@ -208,7 +212,6 @@ export default async function IncaricoPage({
           </dl>
         </div>
 
-        {/* CHIUSURA (se concluso) */}
         {!isAttivo && (
           <div
             className={`border rounded-xl p-6 ${
@@ -239,7 +242,6 @@ export default async function IncaricoPage({
           </div>
         )}
 
-        {/* NOTE */}
         {incarico.note && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 lg:col-span-2">
             <h2 className="text-lg font-semibold mb-4">Note</h2>
@@ -247,6 +249,13 @@ export default async function IncaricoPage({
           </div>
         )}
       </div>
+
+      {/* ATTIVITÀ */}
+      <SezioneAttivita
+        entita="incarico"
+        entitaId={id}
+        attivita={attivita || []}
+      />
     </div>
   )
 }

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import EliminaValutazioneButton from './elimina-button'
+import SezioneAttivita from '@/components/sezione-attivita'
 
 const STATI: Record<string, { label: string; colore: string }> = {
   da_fare: { label: 'Da fare', colore: 'bg-amber-500/20 text-amber-400' },
@@ -29,6 +30,12 @@ export default async function ValutazionePage({
     .single()
 
   if (!valutazione) notFound()
+
+  const { data: attivita } = await supabase
+    .from('attivita')
+    .select('*, agenti (nome, cognome)')
+    .eq('valutazione_id', id)
+    .order('data_attivita', { ascending: false })
 
   const cli = Array.isArray(valutazione.clienti) ? valutazione.clienti[0] : valutazione.clienti
   const imm = Array.isArray(valutazione.immobili) ? valutazione.immobili[0] : valutazione.immobili
@@ -79,7 +86,6 @@ export default async function ValutazionePage({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* COLLEGAMENTI */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Collegamenti</h2>
           <dl className="space-y-3 text-sm">
@@ -110,7 +116,6 @@ export default async function ValutazionePage({
           </dl>
         </div>
 
-        {/* PREZZI */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Prezzi</h2>
           <dl className="space-y-3 text-sm">
@@ -146,7 +151,6 @@ export default async function ValutazionePage({
           </dl>
         </div>
 
-        {/* DETTAGLI */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Dettagli</h2>
           <dl className="space-y-3 text-sm">
@@ -177,7 +181,6 @@ export default async function ValutazionePage({
           </dl>
         </div>
 
-        {/* INDIRIZZO */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Indirizzo</h2>
           <p className="text-white text-sm">
@@ -188,7 +191,6 @@ export default async function ValutazionePage({
           </p>
         </div>
 
-        {/* NOTE */}
         {valutazione.note && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 lg:col-span-2">
             <h2 className="text-lg font-semibold mb-4">Note</h2>
@@ -196,6 +198,13 @@ export default async function ValutazionePage({
           </div>
         )}
       </div>
+
+      {/* ATTIVITÀ */}
+      <SezioneAttivita
+        entita="valutazione"
+        entitaId={id}
+        attivita={attivita || []}
+      />
     </div>
   )
 }

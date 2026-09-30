@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import EliminaRichiestaButton from './elimina-button'
+import SezioneAttivita from '@/components/sezione-attivita'
 
 const STATI: Record<string, { label: string; colore: string }> = {
   nuova: { label: 'Nuova', colore: 'bg-blue-500/20 text-blue-400' },
@@ -24,7 +25,6 @@ const STATI_IMMOBILE: Record<string, string> = {
   buono: 'Buono',
   da_ristrutturare: 'Da ristrutturare',
   rudere: 'Rudere',
-  // retrocompatibilità
   ristrutturato: 'Ristrutturato',
 }
 
@@ -57,7 +57,6 @@ function calcolaMatch(richiesta: any, immobile: any) {
     criteri.push({ nome: 'Tipologia', ok: richiesta.tipologia.includes(immobile.tipo) })
   }
 
-  // Locali (usa vani come "locali" dell'immobile)
   if (richiesta.locali_min) {
     criteri.push({
       nome: 'Locali min',
@@ -71,7 +70,6 @@ function calcolaMatch(richiesta: any, immobile: any) {
     })
   }
 
-  // Mq
   if (richiesta.mq_min) {
     criteri.push({
       nome: 'Mq min',
@@ -143,6 +141,12 @@ export default async function RichiestaPage({
     .single()
 
   if (!richiesta) notFound()
+
+  const { data: attivita } = await supabase
+    .from('attivita')
+    .select('*, agenti (nome, cognome)')
+    .eq('richiesta_id', id)
+    .order('data_attivita', { ascending: false })
 
   const cli = Array.isArray(richiesta.clienti) ? richiesta.clienti[0] : richiesta.clienti
   const stato = STATI[richiesta.stato] || {
@@ -458,20 +462,6 @@ export default async function RichiestaPage({
                       href={`/immobili/${imm.id}`}
                       className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-400 hover:bg-slate-700 px-2.5 py-1.5 rounded transition-colors whitespace-nowrap"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                        <circle cx="12" cy="12" r="3" />
-                      </svg>
                       Vedi immobile
                     </Link>
                   </div>
@@ -498,6 +488,13 @@ export default async function RichiestaPage({
           </div>
         )}
       </div>
+
+      {/* ATTIVITÀ */}
+      <SezioneAttivita
+        entita="richiesta"
+        entitaId={id}
+        attivita={attivita || []}
+      />
     </div>
   )
 }

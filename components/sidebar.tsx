@@ -14,7 +14,6 @@ const VOCI = [
   { href: '/valutazioni', label: 'Valutazioni', icona: '📋' },
   { href: '/notizie', label: 'Notizie', icona: '📰' },
   { href: '/incarichi', label: 'Incarichi', icona: '📝' },
-  { href: '/attivita', label: 'Attività', icona: '📞' },
 ]
 
 export default function Sidebar({

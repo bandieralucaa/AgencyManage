@@ -17,6 +17,24 @@ export default async function DashboardPage() {
   // Google Calendar
   const calendario = await getStatoCalendario(user.id)
 
+  // Cose da fare (attività con scadenza, non completate)
+  const { data: coseDaFare } = await supabase
+    .from('attivita')
+    .select(`
+      id, descrizione, scadenza, tipo, motivo,
+      incarico_id, richiesta_id, valutazione_id, notizia_id, immobile_id, cliente_id,
+      incarichi (immobili (indirizzo, civico, comune)),
+      richieste (clienti (nome, cognome)),
+      valutazioni (indirizzo, civico),
+      notizie (indirizzo, civico),
+      immobili (indirizzo, civico),
+      clienti (nome, cognome)
+    `)
+    .eq('completata', false)
+    .not('scadenza', 'is', null)
+    .order('scadenza', { ascending: true })
+    .limit(10)
+
   // Scadenze incarichi (prossimi 90 giorni)
   const oggi = new Date()
   const novantaGiorni = new Date(oggi.getTime() + 90 * 24 * 60 * 60 * 1000)
@@ -61,10 +79,125 @@ export default async function DashboardPage() {
     return `Tra ${giorni} gg`
   }
 
+  function giorniAllaScadenza(dataStr: string) {
+    const d = new Date(dataStr)
+    const o = new Date()
+    o.setHours(0, 0, 0, 0)
+    d.setHours(0, 0, 0, 0)
+    return Math.ceil((d.getTime() - o.getTime()) / (1000 * 60 * 60 * 24))
+  }
+
+  function linkEntita(a: any) {
+    if (a.incarico_id) return `/incarichi/${a.incarico_id}`
+    if (a.richiesta_id) return `/richieste/${a.richiesta_id}`
+    if (a.valutazione_id) return `/valutazioni/${a.valutazione_id}`
+    if (a.notizia_id) return `/notizie/${a.notizia_id}`
+    if (a.immobile_id) return `/immobili/${a.immobile_id}`
+    if (a.cliente_id) return `/clienti/${a.cliente_id}`
+    return null
+  }
+
+  function etichettaAttivita(a: any) {
+    if (a.incarichi) {
+      const i = Array.isArray(a.incarichi) ? a.incarichi[0] : a.incarichi
+      const imm = i?.immobili
+      const im = Array.isArray(imm) ? imm[0] : imm
+      return im ? `${im.indirizzo} ${im.civico || ''}, ${im.comune}` : 'Incarico'
+    }
+    if (a.richieste) {
+      const r = Array.isArray(a.richieste) ? a.richieste[0] : a.richieste
+      const c = r?.clienti
+      const cli = Array.isArray(c) ? c[0] : c
+      return cli ? `Richiesta di ${cli.cognome} ${cli.nome}` : 'Richiesta'
+    }
+    if (a.valutazioni) {
+      const v = Array.isArray(a.valutazioni) ? a.valutazioni[0] : a.valutazioni
+      return v ? `Valutazione ${v.indirizzo} ${v.civico || ''}` : 'Valutazione'
+    }
+    if (a.notizie) {
+      const n = Array.isArray(a.notizie) ? a.notizie[0] : a.notizie
+      return n?.indirizzo ? `Notizia ${n.indirizzo} ${n.civico || ''}` : 'Notizia'
+    }
+    if (a.immobili) {
+      const i = Array.isArray(a.immobili) ? a.immobili[0] : a.immobili
+      return i ? `${i.indirizzo} ${i.civico || ''}` : 'Immobile'
+    }
+    if (a.clienti) {
+      const c = Array.isArray(a.clienti) ? a.clienti[0] : a.clienti
+      return c ? `${c.cognome} ${c.nome}` : 'Cliente'
+    }
+    return ''
+  }
+
   return (
     <div className="p-6 lg:p-10">
       <h1 className="text-3xl font-bold mb-2">Ciao, {agente?.nome} 👋</h1>
       <p className="text-slate-400 mb-8">Panoramica del tuo lavoro di oggi.</p>
+
+      {/* COSE DA FARE */}
+      {coseDaFare && coseDaFare.length > 0 && (
+        <div className="bg-slate-800 border border-amber-500/30 rounded-xl p-6 mb-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            ⚡ Cose da fare
+            <span className="text-xs text-slate-500 font-normal">
+              ({coseDaFare.length})
+            </span>
+          </h3>
+          <ul className="space-y-2">
+            {coseDaFare.map((a: any) => {
+              const giorni = giorniAllaScadenza(a.scadenza)
+              const scaduta = giorni < 0
+              const oggi = giorni === 0
+              const link = linkEntita(a)
+              const etichetta = etichettaAttivita(a)
+
+              const contenuto = (
+                <div className="flex items-start gap-3 flex-1 min-w-0">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-white">{a.descrizione}</div>
+                    {etichetta && (
+                      <div className="text-xs text-slate-500 mt-0.5">{etichetta}</div>
+                    )}
+                  </div>
+                  <div
+                    className={`text-xs font-medium px-2 py-1 rounded whitespace-nowrap ${
+                      scaduta
+                        ? 'bg-red-500/20 text-red-400'
+                        : oggi
+                        ? 'bg-amber-500/20 text-amber-400'
+                        : 'bg-blue-500/20 text-blue-400'
+                    }`}
+                  >
+                    {scaduta
+                      ? `Scaduta ${Math.abs(giorni)} gg fa`
+                      : oggi
+                      ? 'Oggi'
+                      : `Entro ${formatData(a.scadenza)}`}
+                  </div>
+                </div>
+              )
+
+              return (
+                <li
+                  key={a.id}
+                  className="border-b border-slate-700 last:border-0 pb-2 last:pb-0"
+                >
+                  {link ? (
+                    <a
+                      href={link}
+                      className="flex items-start gap-3 hover:bg-slate-700/40 -mx-2 px-2 py-2 rounded transition-colors"
+                    >
+                      {contenuto}
+                    </a>
+                  ) : (
+                    <div className="flex items-start gap-3 py-2">{contenuto}</div>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
 
       {/* GOOGLE CALENDAR */}
       <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 mb-6">
@@ -109,7 +242,6 @@ export default async function DashboardPage() {
 
       {/* SCADENZE E COMPLEANNI */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* SCADENZE */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             ⏰ Scadenze incarichi
@@ -159,7 +291,6 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* COMPLEANNI */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             🎂 Compleanni

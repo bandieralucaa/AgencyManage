@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import EliminaImmobileButton from './elimina-button'
 import ToggleAttivoImmobileButton from './toggle-attivo-button'
+import SezioneAttivita from '@/components/sezione-attivita'
 
 const TIPI: Record<string, string> = {
   appartamento: 'Appartamento',
@@ -41,6 +42,12 @@ export default async function ImmobilePage({
     .single()
 
   if (!immobile) notFound()
+
+  const { data: attivita } = await supabase
+    .from('attivita')
+    .select('*, agenti (nome, cognome)')
+    .eq('immobile_id', id)
+    .order('data_attivita', { ascending: false })
 
   const prezzoMq =
     immobile.metri_quadrati && immobile.prezzo
@@ -94,7 +101,6 @@ export default async function ImmobilePage({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* PREZZI */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Prezzi</h2>
           <dl className="space-y-3 text-sm">
@@ -128,7 +134,6 @@ export default async function ImmobilePage({
           </dl>
         </div>
 
-        {/* CARATTERISTICHE */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Caratteristiche</h2>
           <dl className="space-y-3 text-sm">
@@ -185,7 +190,6 @@ export default async function ImmobilePage({
           </dl>
         </div>
 
-        {/* UBICAZIONE */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Ubicazione</h2>
           <dl className="space-y-3 text-sm">
@@ -238,6 +242,13 @@ export default async function ImmobilePage({
           </div>
         )}
       </div>
+
+      {/* ATTIVITÀ */}
+      <SezioneAttivita
+        entita="immobile"
+        entitaId={id}
+        attivita={attivita || []}
+      />
     </div>
   )
 }

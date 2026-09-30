@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import EliminaNotiziaButton from './elimina-button'
+import SezioneAttivita from '@/components/sezione-attivita'
 
 const STATI: Record<string, { label: string; colore: string }> = {
   aperta: { label: 'Aperta', colore: 'bg-blue-500/20 text-blue-400' },
@@ -39,6 +40,12 @@ export default async function NotiziaPage({
     .single()
 
   if (!notizia) notFound()
+
+  const { data: attivita } = await supabase
+    .from('attivita')
+    .select('*, agenti (nome, cognome)')
+    .eq('notizia_id', id)
+    .order('data_attivita', { ascending: false })
 
   const ag = Array.isArray(notizia.agenti) ? notizia.agenti[0] : notizia.agenti
   const cli = Array.isArray(notizia.clienti) ? notizia.clienti[0] : notizia.clienti
@@ -112,7 +119,6 @@ export default async function NotiziaPage({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* INDIRIZZO */}
         {notizia.indirizzo && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h2 className="text-lg font-semibold mb-4">Indirizzo</h2>
@@ -125,7 +131,6 @@ export default async function NotiziaPage({
           </div>
         )}
 
-        {/* CLIENTE */}
         {cli && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h2 className="text-lg font-semibold mb-4">Cliente collegato</h2>
@@ -151,7 +156,6 @@ export default async function NotiziaPage({
           </div>
         )}
 
-        {/* MOTIVO CHIUSURA */}
         {notizia.motivo_chiusura && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 lg:col-span-2">
             <h2 className="text-lg font-semibold mb-4">Motivo chiusura</h2>
@@ -161,6 +165,13 @@ export default async function NotiziaPage({
           </div>
         )}
       </div>
+
+      {/* ATTIVITÀ */}
+      <SezioneAttivita
+        entita="notizia"
+        entitaId={id}
+        attivita={attivita || []}
+      />
     </div>
   )
 }
