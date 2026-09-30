@@ -56,3 +56,22 @@ export async function cambiaPassword(
 
   return { ok: true }
 }
+
+export async function scollegaGoogleCalendar(): Promise<{ ok: boolean; errore?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, errore: 'Non autenticato' }
+
+  const { error } = await supabase
+    .from('integrazioni_calendario')
+    .delete()
+    .eq('agente_id', user.id)
+    .eq('provider', 'google')
+
+  if (error) return { ok: false, errore: error.message }
+
+  revalidatePath('/impostazioni')
+  revalidatePath('/dashboard')
+  revalidatePath('/agenda')
+  return { ok: true }
+}
