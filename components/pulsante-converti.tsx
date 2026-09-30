@@ -1,7 +1,6 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useTransition } from 'react'
 
 export default function PulsanteConverti({
   label,
@@ -18,9 +17,8 @@ export default function PulsanteConverti({
   colore?: 'blue' | 'emerald' | 'amber' | 'purple'
   icona: string
 }) {
-  const router = useRouter()
-  const [loading, setLoading] = useState(false)
   const [errore, setErrore] = useState('')
+  const [isPending, startTransition] = useTransition()
 
   const colori = {
     blue: 'bg-blue-600 hover:bg-blue-700',
@@ -29,15 +27,22 @@ export default function PulsanteConverti({
     purple: 'bg-purple-600 hover:bg-purple-700',
   }
 
-  async function handleClick() {
-    setLoading(true)
+  function handleClick() {
     setErrore('')
-    try {
-      await azione(id)
-    } catch (err: any) {
-      setErrore(err?.message || 'Errore nella conversione')
-      setLoading(false)
-    }
+    startTransition(async () => {
+      try {
+        await azione(id)
+      } catch (err: any) {
+        // Ignora gli errori di redirect di Next.js (sono attesi)
+        if (
+          err?.digest?.startsWith('NEXT_REDIRECT') ||
+          err?.message?.includes('NEXT_REDIRECT')
+        ) {
+          return
+        }
+        setErrore(err?.message || 'Errore nella conversione')
+      }
+    })
   }
 
   return (
@@ -54,10 +59,10 @@ export default function PulsanteConverti({
         </div>
         <button
           onClick={handleClick}
-          disabled={loading}
+          disabled={isPending}
           className={`${colori[colore]} text-white font-medium px-5 py-2.5 rounded-lg transition-colors disabled:opacity-50 whitespace-nowrap`}
         >
-          {loading ? 'Conversione...' : label}
+          {isPending ? 'Conversione...' : label}
         </button>
       </div>
       {errore && (

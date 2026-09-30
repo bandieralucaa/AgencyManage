@@ -24,7 +24,6 @@ export default function FormValutazione({
     frazione: valutazione?.frazione ?? '',
     comune: valutazione?.comune ?? '',
     cap: valutazione?.cap ?? '',
-    provincia: valutazione?.provincia ?? 'BO',
     data_valutazione:
       valutazione?.data_valutazione ?? new Date().toISOString().split('T')[0],
     prezzo_valutato: valutazione?.prezzo_valutato ?? '',
@@ -74,6 +73,29 @@ export default function FormValutazione({
     }, 200)
     return () => clearTimeout(timer)
   }, [form.indirizzo, supabase])
+
+  // Auto-popola comune/frazione/CAP quando il form si apre in modifica
+  useEffect(() => {
+    async function autoPopola() {
+      if (!valutazione?.indirizzo) return
+      if (valutazione?.cap && valutazione?.comune && valutazione?.frazione) return
+
+      const { data } = await supabase
+        .from('strade')
+        .select('comune, frazione, cap')
+        .ilike('via', valutazione.indirizzo)
+        .limit(1)
+        .maybeSingle()
+
+      if (data) {
+        if (!form.comune) upd('comune', data.comune || '')
+        if (!form.frazione) upd('frazione', data.frazione || '')
+        if (!form.cap) upd('cap', data.cap || '')
+      }
+    }
+    autoPopola()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function selezionaVia(viaSelezionata: string) {
     upd('indirizzo', viaSelezionata)

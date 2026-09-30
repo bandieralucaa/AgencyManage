@@ -44,7 +44,7 @@ export default function FormImmobile({
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  // Autocomplete via
+  // Autocomplete via (mentre digiti)
   useEffect(() => {
     if (form.indirizzo.length < 2) {
       setSuggerimenti([])
@@ -63,6 +63,29 @@ export default function FormImmobile({
     }, 200)
     return () => clearTimeout(timer)
   }, [form.indirizzo, supabase])
+
+  // Auto-popola comune/frazione/CAP quando il form si apre in modifica
+  useEffect(() => {
+    async function autoPopola() {
+      if (!immobile?.indirizzo) return
+      if (immobile?.cap && immobile?.comune && immobile?.frazione) return
+
+      const { data } = await supabase
+        .from('strade')
+        .select('comune, frazione, cap')
+        .ilike('via', immobile.indirizzo)
+        .limit(1)
+        .maybeSingle()
+
+      if (data) {
+        if (!form.comune) upd('comune', data.comune || '')
+        if (!form.frazione) upd('frazione', data.frazione || '')
+        if (!form.cap) upd('cap', data.cap || '')
+      }
+    }
+    autoPopola()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function selezionaVia(viaSelezionata: string) {
     upd('indirizzo', viaSelezionata)

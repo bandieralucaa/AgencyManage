@@ -28,42 +28,83 @@ export default async function IncaricoPage({
   const { id } = await params
   const supabase = await createClient()
 
+  // 1. Leggi l'incarico (query semplice)
   const { data: incarico } = await supabase
     .from('incarichi')
-    .select(`
-      *,
-      immobili (id, indirizzo, civico, frazione, comune),
-      clienti (id, nome, cognome, telefono, email),
-      valutazioni (id, data_valutazione, notizie (id))
-    `)
+    .select('*')
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
   if (!incarico) notFound()
 
-  const { data: attivita } = await supabase
-    .from('attivita')
-    .select('*, agenti (nome, cognome)')
-    .eq('incarico_id', id)
-    .order('data_attivita', { ascending: false })
+  // 2. Leggi immobile (se collegato)
+  let immobile = null
+  if (incarico.immobile_id) {
+    const { data } = await supabase
+      .from('immobili')
+      .select('id, indirizzo, civico, frazione, comune')
+      .eq('id', incarico.immobile_id)
+      .maybeSingle()
+    immobile = data
+  }
 
-  // Cerca l'immobile collegato all'incarico
+  // 3. Leggi cliente (se collegato)
+  let cliente = null
+  if (incarico.cliente_id) {
+    const { data } = await supabase
+      .from('clienti')
+      .select('id, nome, cognome, telefono, email')
+      .eq('id', incarico.cliente_id)
+      .maybeSingle()
+    cliente = data
+  }
+
+  // 4. Leggi valutazione (se collegata)
+  let valutazione = null
+  let notizia = null
+  if (incarico.valutazione_id) {
+    const { data: val } = await supabase
+      .from('valutazioni')
+      .select('id, data_valutazione, notizia_id')
+      .eq('id', incarico.valutazione_id)
+      .maybeSingle()
+    valutazione = val
+
+    // 5. Leggi notizia (se collegata alla valutazione)
+    if (val?.notizia_id) {
+      const { data: not } = await supabase
+        .from('notizie')
+        .select('id, created_at')
+        .eq('id', val.notizia_id)
+        .maybeSingle()
+      notizia = not
+    }
+  }
+
+  // 6. Leggi immobile in portafoglio (nato da questo incarico)
   const { data: immobilePortafoglio } = await supabase
     .from('immobili')
     .select('id, indirizzo, civico')
     .eq('incarico_id', id)
     .maybeSingle()
 
-  const imm = Array.isArray(incarico.immobili) ? incarico.immobili[0] : incarico.immobili
-  const cli = Array.isArray(incarico.clienti) ? incarico.clienti[0] : incarico.clienti
-  const val = Array.isArray(incarico.valutazioni) ? incarico.valutazioni[0] : incarico.valutazioni
-  const not = val ? (Array.isArray(val.notizie) ? val.notizie[0] : val.notizie) : null
+  // 7. Leggi attività
+  const { data: attivita } = await supabase
+    .from('attivita')
+    .select('*, agenti (nome, cognome)')
+    .eq('incarico_id', id)
+    .order('data_attivita', { ascending: false })
+
+  const imm = immobile
+  const cli = cliente
+  const val = valutazione
+  const not = notizia
   const stato = STATI[incarico.stato] || {
     label: incarico.stato,
     colore: 'bg-slate-700 text-slate-300',
   }
 
-  // Timeline (solo se nato da valutazione)
+  // Timeline
   const timeline = val
     ? [
         ...(not
