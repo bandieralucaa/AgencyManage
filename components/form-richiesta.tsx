@@ -143,7 +143,7 @@ export default function FormRichiesta({
       .select('comune, cap')
       .eq('frazione', primaFrazione)
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (data) {
       upd('comune', data.comune || '')

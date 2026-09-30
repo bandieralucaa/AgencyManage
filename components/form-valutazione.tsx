@@ -83,7 +83,7 @@ export default function FormValutazione({
       .select('comune, frazione, cap')
       .eq('via', viaSelezionata)
       .limit(1)
-      .single()
+      .maybeSingle()
     if (data) {
       upd('comune', data.comune || '')
       upd('frazione', data.frazione || '')
