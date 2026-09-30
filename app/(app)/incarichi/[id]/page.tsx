@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import EliminaIncaricoButton from './elimina-button'
 import SezioneAttivita from '@/components/sezione-attivita'
+import PulsanteConverti from '@/components/pulsante-converti'
+import TimelineFlusso from '@/components/timeline-flusso'
+import { incaricoToImmobile } from '@/app/(app)/flusso/actions'
 
 const STATI: Record<string, { label: string; colore: string }> = {
   attivo: { label: '🟢 Attivo', colore: 'bg-emerald-500/20 text-emerald-400' },
@@ -30,7 +33,8 @@ export default async function IncaricoPage({
     .select(`
       *,
       immobili (id, indirizzo, civico, frazione, comune),
-      clienti (id, nome, cognome, telefono, email)
+      clienti (id, nome, cognome, telefono, email),
+      valutazioni (id, data_valutazione, notizie (id))
     `)
     .eq('id', id)
     .single()
@@ -43,12 +47,61 @@ export default async function IncaricoPage({
     .eq('incarico_id', id)
     .order('data_attivita', { ascending: false })
 
+  // Cerca l'immobile collegato all'incarico
+  const { data: immobilePortafoglio } = await supabase
+    .from('immobili')
+    .select('id, indirizzo, civico')
+    .eq('incarico_id', id)
+    .maybeSingle()
+
   const imm = Array.isArray(incarico.immobili) ? incarico.immobili[0] : incarico.immobili
   const cli = Array.isArray(incarico.clienti) ? incarico.clienti[0] : incarico.clienti
+  const val = Array.isArray(incarico.valutazioni) ? incarico.valutazioni[0] : incarico.valutazioni
+  const not = val ? (Array.isArray(val.notizie) ? val.notizie[0] : val.notizie) : null
   const stato = STATI[incarico.stato] || {
     label: incarico.stato,
     colore: 'bg-slate-700 text-slate-300',
   }
+
+  // Timeline (solo se nato da valutazione)
+  const timeline = val
+    ? [
+        ...(not
+          ? [
+              {
+                label: 'Notizia',
+                icona: '📰',
+                stato: 'completato' as const,
+                link: `/notizie/${not.id}`,
+              },
+            ]
+          : []),
+        {
+          label: 'Valutazione',
+          icona: '📋',
+          stato: 'completato' as const,
+          link: `/valutazioni/${val.id}`,
+          data: new Date(val.data_valutazione).toLocaleDateString('it-IT'),
+        },
+        {
+          label: 'Incarico',
+          icona: '📝',
+          stato: 'completato' as const,
+          data: new Date(incarico.data_inizio).toLocaleDateString('it-IT'),
+        },
+        {
+          label: 'Immobile in portafoglio',
+          icona: '🏠',
+          stato: immobilePortafoglio
+            ? ('completato' as const)
+            : ('attivo' as const),
+          link: immobilePortafoglio ? `/immobili/${immobilePortafoglio.id}` : undefined,
+        },
+      ]
+    : null
+
+  const mostraPulsanteImmobile = val && !immobilePortafoglio
+  const isAttivo = incarico.stato === 'attivo'
 
   function formatData(data: string) {
     return new Date(data).toLocaleDateString('it-IT', {
@@ -67,7 +120,6 @@ export default async function IncaricoPage({
   }
 
   const giorni = giorniAllaScadenza(incarico.data_scadenza)
-  const isAttivo = incarico.stato === 'attivo'
 
   return (
     <div className="p-6 lg:p-10">
@@ -78,7 +130,11 @@ export default async function IncaricoPage({
         <div className="flex items-start justify-between gap-4 mt-2 flex-wrap">
           <div>
             <h1 className="text-3xl font-bold">
-              {imm ? `${imm.indirizzo} ${imm.civico || ''}` : 'Incarico'}
+              {imm
+                ? `${imm.indirizzo} ${imm.civico || ''}`
+                : immobilePortafoglio
+                ? `${immobilePortafoglio.indirizzo} ${immobilePortafoglio.civico || ''}`
+                : 'Incarico'}
             </h1>
             <div className="flex items-center gap-3 mt-2 text-sm text-slate-400 flex-wrap">
               {imm && (
@@ -120,6 +176,27 @@ export default async function IncaricoPage({
         </div>
       </div>
 
+      {/* TIMELINE */}
+      {timeline && (
+        <div className="mb-6">
+          <TimelineFlusso step={timeline} />
+        </div>
+      )}
+
+      {/* PULSANTE PORTA IN PORTAFOGLIO */}
+      {mostraPulsanteImmobile && (
+        <div className="mb-6">
+          <PulsanteConverti
+            label="Porta in portafoglio"
+            descrizione="Crea l'immobile dai dati della valutazione. Potrai poi completare le info (foto, descrizione, classe energetica...)."
+            azione={incaricoToImmobile}
+            id={id}
+            colore="emerald"
+            icona="🏠"
+          />
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {imm && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
@@ -140,6 +217,31 @@ export default async function IncaricoPage({
                   {imm.comune}
                 </dd>
               </div>
+            </dl>
+          </div>
+        )}
+
+        {immobilePortafoglio && (
+          <div className="bg-slate-800 border border-emerald-500/30 rounded-xl p-6">
+            <h2 className="text-lg font-semibold mb-4">🏠 In portafoglio</h2>
+            <dl className="space-y-3 text-sm">
+              <div>
+                <dt className="text-slate-400">Immobile creato</dt>
+                <dd className="text-white mt-0.5">
+                  <Link
+                    href={`/immobili/${immobilePortafoglio.id}`}
+                    className="text-blue-400 hover:underline"
+                  >
+                    {immobilePortafoglio.indirizzo} {immobilePortafoglio.civico}
+                  </Link>
+                </dd>
+              </div>
+              <Link
+                href={`/immobili/${immobilePortafoglio.id}/modifica`}
+                className="inline-block text-xs text-slate-400 hover:text-blue-400 underline"
+              >
+                Completa i dati dell&apos;immobile →
+              </Link>
             </dl>
           </div>
         )}
@@ -250,7 +352,6 @@ export default async function IncaricoPage({
         )}
       </div>
 
-      {/* ATTIVITÀ */}
       <SezioneAttivita
         entita="incarico"
         entitaId={id}

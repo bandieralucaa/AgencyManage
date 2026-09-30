@@ -37,14 +37,22 @@ export default async function NotiziePage({
     .order('created_at', { ascending: false })
 
   if (params.q) {
-    query = query.or(
-      `indirizzo.ilike.%${params.q}%,comune.ilike.%${params.q}%`
-    )
+    query = query.or(`indirizzo.ilike.%${params.q}%,comune.ilike.%${params.q}%`)
   }
   if (params.tipo) query = query.eq('tipo', params.tipo)
   if (params.stato) query = query.eq('stato', params.stato)
 
   const { data: notizie } = await query
+
+  // Recupera gli ID delle notizie che hanno una valutazione collegata
+  const { data: valutazioniCollegate } = await supabase
+    .from('valutazioni')
+    .select('notizia_id')
+    .not('notizia_id', 'is', null)
+
+  const notizieConValutazione = new Set(
+    (valutazioniCollegate || []).map((v) => v.notizia_id)
+  )
 
   function formatData(data: string) {
     return new Date(data).toLocaleDateString('it-IT', {
@@ -60,8 +68,7 @@ export default async function NotiziePage({
         <div>
           <h1 className="text-3xl font-bold">Notizie</h1>
           <p className="text-slate-400 mt-1">
-            {notizie?.length || 0}{' '}
-            {notizie?.length === 1 ? 'notizia' : 'notizie'} trovate
+            {notizie?.length || 0} {notizie?.length === 1 ? 'notizia' : 'notizie'} trovate
           </p>
         </div>
         <Link
@@ -94,6 +101,8 @@ export default async function NotiziePage({
                   colore: 'bg-slate-700 text-slate-300',
                 }
                 const isClienteCerca = n.tipo_notizia === 'cliente_cerca'
+                const haValutazione = notizieConValutazione.has(n.id)
+
                 return (
                   <tr
                     key={n.id}
@@ -124,6 +133,11 @@ export default async function NotiziePage({
                         <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">
                           {TIPI[n.tipo] || n.tipo || '—'}
                         </span>
+                        {haValutazione && (
+                          <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium">
+                            ✅ Valutata
+                          </span>
+                        )}
                       </div>
                       {n.indirizzo && (
                         <div className="text-sm text-white">

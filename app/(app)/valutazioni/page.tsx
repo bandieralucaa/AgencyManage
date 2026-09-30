@@ -34,6 +34,16 @@ export default async function ValutazioniPage({
 
   const { data: valutazioni } = await query
 
+  // Recupera gli ID delle valutazioni con incarico collegato
+  const { data: incarichiCollegati } = await supabase
+    .from('incarichi')
+    .select('valutazione_id')
+    .not('valutazione_id', 'is', null)
+
+  const valutazioniConIncarico = new Set(
+    (incarichiCollegati || []).map((i) => i.valutazione_id)
+  )
+
   function formatData(data: string) {
     return new Date(data).toLocaleDateString('it-IT', {
       day: '2-digit',
@@ -82,12 +92,13 @@ export default async function ValutazioniPage({
                   label: v.stato,
                   colore: 'bg-slate-700 text-slate-300',
                 }
+                const haIncarico = valutazioniConIncarico.has(v.id)
+
                 return (
                   <tr
                     key={v.id}
                     className="border-b border-slate-700 last:border-0 hover:bg-slate-700/40 transition-colors"
                   >
-                    {/* IMMOBILE */}
                     <td className="px-5 py-3">
                       <div className="font-medium">
                         {v.indirizzo} {v.civico}
@@ -96,34 +107,23 @@ export default async function ValutazioniPage({
                         {v.frazione && `${v.frazione}, `}
                         {v.comune}
                       </div>
-                    </td>
-
-                    {/* CLIENTE */}
-                    <td className="px-5 py-3">
-                      {cli ? (
-                        <>
-                          <div className="text-sm text-white">
-                            {cli.cognome} {cli.nome}
-                          </div>
-                        </>
-                      ) : (
-                        <div className="text-sm text-slate-500">—</div>
+                      {haIncarico && (
+                        <div className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium mt-1 inline-block">
+                          ✅ Incaricata
+                        </div>
                       )}
                     </td>
-
-                    {/* DATA */}
+                    <td className="px-5 py-3 text-sm text-slate-300">
+                      {cli ? `${cli.cognome} ${cli.nome}` : '—'}
+                    </td>
                     <td className="px-5 py-3 text-sm text-slate-300">
                       {formatData(v.data_valutazione)}
                     </td>
-
-                    {/* PREZZO */}
                     <td className="px-5 py-3 text-sm text-slate-300">
                       {v.prezzo_valutato
                         ? `€ ${Number(v.prezzo_valutato).toLocaleString('it-IT')}`
                         : '—'}
                     </td>
-
-                    {/* STATO */}
                     <td className="px-5 py-3">
                       <span
                         className={`text-xs px-2 py-1 rounded whitespace-nowrap ${stato.colore}`}
@@ -131,8 +131,6 @@ export default async function ValutazioniPage({
                         {stato.label}
                       </span>
                     </td>
-
-                    {/* AZIONI */}
                     <td className="px-5 py-3 text-right">
                       <Link
                         href={`/valutazioni/${v.id}`}

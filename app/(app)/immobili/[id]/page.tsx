@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import EliminaImmobileButton from './elimina-button'
 import ToggleAttivoImmobileButton from './toggle-attivo-button'
 import SezioneAttivita from '@/components/sezione-attivita'
+import TimelineFlusso from '@/components/timeline-flusso'
 
 const TIPI: Record<string, string> = {
   appartamento: 'Appartamento',
@@ -48,6 +49,87 @@ export default async function ImmobilePage({
     .select('*, agenti (nome, cognome)')
     .eq('immobile_id', id)
     .order('data_attivita', { ascending: false })
+
+  const { data: proposte } = await supabase
+    .from('proposte')
+    .select(`
+      id, stato, data_visita, data_proposta, importo_proposto,
+      clienti (nome, cognome)
+    `)
+    .eq('immobile_id', id)
+    .order('created_at', { ascending: false })
+
+  // Ricostruisci la catena: immobile → incarico → valutazione → notizia
+  let incarico = null
+  let valutazione = null
+  let notizia = null
+
+  if (immobile.incarico_id) {
+    const { data: inc } = await supabase
+      .from('incarichi')
+      .select('id, data_inizio, tipo, stato, valutazione_id')
+      .eq('id', immobile.incarico_id)
+      .maybeSingle()
+    incarico = inc
+
+    if (incarico?.valutazione_id) {
+      const { data: val } = await supabase
+        .from('valutazioni')
+        .select('id, data_valutazione, notizia_id')
+        .eq('id', incarico.valutazione_id)
+        .maybeSingle()
+      valutazione = val
+
+      if (valutazione?.notizia_id) {
+        const { data: not } = await supabase
+          .from('notizie')
+          .select('id, created_at')
+          .eq('id', valutazione.notizia_id)
+          .maybeSingle()
+        notizia = not
+      }
+    }
+  }
+
+  // Timeline completa
+  const timeline = incarico
+    ? [
+        ...(notizia
+          ? [
+              {
+                label: 'Notizia',
+                icona: '📰',
+                stato: 'completato' as const,
+                link: `/notizie/${notizia.id}`,
+                data: new Date(notizia.created_at).toLocaleDateString('it-IT'),
+              },
+            ]
+          : []),
+        ...(valutazione
+          ? [
+              {
+                label: 'Valutazione',
+                icona: '📋',
+                stato: 'completato' as const,
+                link: `/valutazioni/${valutazione.id}`,
+                data: new Date(valutazione.data_valutazione).toLocaleDateString('it-IT'),
+              },
+            ]
+          : []),
+        {
+          label: 'Incarico',
+          icona: '📝',
+          stato: 'completato' as const,
+          link: `/incarichi/${incarico.id}`,
+          data: new Date(incarico.data_inizio).toLocaleDateString('it-IT'),
+        },
+        {
+          label: 'Immobile in portafoglio',
+          icona: '🏠',
+          stato: 'completato' as const,
+        },
+      ]
+    : null
 
   const prezzoMq =
     immobile.metri_quadrati && immobile.prezzo
@@ -99,6 +181,13 @@ export default async function ImmobilePage({
           </div>
         </div>
       </div>
+
+      {/* TIMELINE FLUSSO */}
+      {timeline && (
+        <div className="mb-6">
+          <TimelineFlusso step={timeline} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
@@ -243,7 +332,77 @@ export default async function ImmobilePage({
         )}
       </div>
 
-      {/* ATTIVITÀ */}
+      {/* PROPOSTE */}
+      <div className="mt-6">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            🤝 Proposte
+            <span className="text-sm text-slate-500 font-normal">
+              ({proposte?.length || 0})
+            </span>
+          </h2>
+          <Link
+            href={`/proposte/nuovo?immobile_id=${id}`}
+            className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+          >
+            + Registra proposta
+          </Link>
+        </div>
+        {proposte && proposte.length > 0 ? (
+          <div className="space-y-2">
+            {proposte.map((p: any) => {
+              const pCli = Array.isArray(p.clienti) ? p.clienti[0] : p.clienti
+              const statop = {
+                in_corso: 'In corso',
+                accettata: '✅ Accettata',
+                rifiutata: '❌ Rifiutata',
+                controproposta: '↔️ Controproposta',
+                ritirata: 'Ritirata',
+              }[p.stato as string] || p.stato
+              const colorip = {
+                in_corso: 'bg-amber-500/20 text-amber-400',
+                accettata: 'bg-emerald-500/20 text-emerald-400',
+                rifiutata: 'bg-red-500/20 text-red-400',
+                controproposta: 'bg-blue-500/20 text-blue-400',
+                ritirata: 'bg-slate-700 text-slate-400',
+              }[p.stato as string] || 'bg-slate-700 text-slate-300'
+              return (
+                <Link
+                  key={p.id}
+                  href={`/proposte/${p.id}`}
+                  className="block bg-slate-800 border border-slate-700 rounded-lg p-4 hover:border-slate-500 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-white">
+                        {pCli ? `${pCli.cognome} ${pCli.nome}` : 'Cliente'}
+                        {p.importo_proposto && (
+                          <span className="ml-3 text-emerald-400 font-medium">
+                            € {Number(p.importo_proposto).toLocaleString('it-IT')}
+                          </span>
+                        )}
+                      </div>
+                      {p.data_visita && (
+                        <div className="text-xs text-slate-500 mt-0.5">
+                          Visita: {new Date(p.data_visita).toLocaleDateString('it-IT')}
+                        </div>
+                      )}
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded whitespace-nowrap ${colorip}`}>
+                      {statop}
+                    </span>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        ) : (
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 text-center text-sm text-slate-500">
+            Nessuna proposta registrata per questo immobile.
+          </div>
+        )}
+      </div>
+
       <SezioneAttivita
         entita="immobile"
         entitaId={id}

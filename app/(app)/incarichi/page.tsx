@@ -38,6 +38,16 @@ export default async function IncarichiPage({
 
   const { data: incarichi } = await query
 
+  // Recupera gli ID degli incarichi con immobile in portafoglio
+  const { data: immobiliInPortafoglio } = await supabase
+    .from('immobili')
+    .select('incarico_id')
+    .not('incarico_id', 'is', null)
+
+  const incarichiInPortafoglio = new Set(
+    (immobiliInPortafoglio || []).map((i) => i.incarico_id)
+  )
+
   function formatData(data: string) {
     return new Date(data).toLocaleDateString('it-IT', {
       day: '2-digit',
@@ -101,6 +111,7 @@ export default async function IncarichiPage({
                 const stato = STATI[i.stato] || { label: i.stato, colore: 'bg-slate-700 text-slate-300' }
                 const giorni = giorniAllaScadenza(i.data_scadenza)
                 const isAttivo = i.stato === 'attivo'
+                const inPortafoglio = incarichiInPortafoglio.has(i.id)
 
                 return (
                   <tr
@@ -115,6 +126,11 @@ export default async function IncarichiPage({
                         <div className="text-xs text-slate-500 mt-0.5">
                           {imm.frazione && `${imm.frazione}, `}
                           {imm.comune}
+                        </div>
+                      )}
+                      {inPortafoglio && (
+                        <div className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium mt-1 inline-block">
+                          🏠 In portafoglio
                         </div>
                       )}
                     </td>

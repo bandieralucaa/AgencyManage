@@ -148,6 +148,15 @@ export default async function RichiestaPage({
     .eq('richiesta_id', id)
     .order('data_attivita', { ascending: false })
 
+  const { data: proposte } = await supabase
+    .from('proposte')
+    .select(`
+      id, stato, data_visita, data_proposta, importo_proposto,
+      immobili (id, indirizzo, civico, comune)
+    `)
+    .eq('richiesta_id', id)
+    .order('created_at', { ascending: false })
+
   const cli = Array.isArray(richiesta.clienti) ? richiesta.clienti[0] : richiesta.clienti
   const stato = STATI[richiesta.stato] || {
     label: richiesta.stato,
@@ -376,6 +385,91 @@ export default async function RichiestaPage({
           </div>
         )}
       </div>
+
+
+      {/* PROPOSTE COLLEGATE */}
+      {proposte && proposte.length > 0 && (
+        <div className="mt-10">
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <h2 className="text-2xl font-bold">🤝 Proposte</h2>
+            <Link
+              href={`/proposte/nuovo?richiesta_id=${id}`}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+            >
+              + Registra proposta
+            </Link>
+          </div>
+          <div className="space-y-3">
+            {proposte.map((p: any) => {
+              const pImm = Array.isArray(p.immobili) ? p.immobili[0] : p.immobili
+              const statop = {
+                in_corso: 'In corso',
+                accettata: '✅ Accettata',
+                rifiutata: '❌ Rifiutata',
+                controproposta: '↔️ Controproposta',
+                ritirata: 'Ritirata',
+              }[p.stato as string] || p.stato
+              const colorip = {
+                in_corso: 'bg-amber-500/20 text-amber-400',
+                accettata: 'bg-emerald-500/20 text-emerald-400',
+                rifiutata: 'bg-red-500/20 text-red-400',
+                controproposta: 'bg-blue-500/20 text-blue-400',
+                ritirata: 'bg-slate-700 text-slate-400',
+              }[p.stato as string] || 'bg-slate-700 text-slate-300'
+              return (
+                <Link
+                  key={p.id}
+                  href={`/proposte/${p.id}`}
+                  className="block bg-slate-800 border border-slate-700 rounded-xl p-5 hover:border-slate-500 transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-white">
+                        {pImm ? `${pImm.indirizzo} ${pImm.civico}, ${pImm.comune}` : '—'}
+                      </div>
+                      <div className="text-sm text-slate-400 mt-1 flex gap-3 flex-wrap">
+                        {p.data_visita && (
+                          <span>
+                            Visita: {new Date(p.data_visita).toLocaleDateString('it-IT')}
+                          </span>
+                        )}
+                        {p.importo_proposto && (
+                          <span className="text-emerald-400 font-medium">
+                            € {Number(p.importo_proposto).toLocaleString('it-IT')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className={`text-xs px-2 py-1 rounded whitespace-nowrap ${colorip}`}>
+                      {statop}
+                    </span>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Pulsante per registrare una proposta anche se non ce ne sono ancora */}
+      {(!proposte || proposte.length === 0) && matches.length > 0 && (
+        <div className="mt-10">
+          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h3 className="text-lg font-semibold">🤝 Nessuna proposta registrata</h3>
+              <p className="text-sm text-slate-400 mt-1">
+                Quando un cliente visita un immobile e fa un&apos;offerta, registrala qui.
+              </p>
+            </div>
+            <Link
+              href={`/proposte/nuovo?richiesta_id=${id}`}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors whitespace-nowrap"
+            >
+              + Registra proposta
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* IMMOBILI COMPATIBILI */}
       <div className="mt-10">

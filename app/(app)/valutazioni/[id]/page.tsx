@@ -3,6 +3,9 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import EliminaValutazioneButton from './elimina-button'
 import SezioneAttivita from '@/components/sezione-attivita'
+import PulsanteConverti from '@/components/pulsante-converti'
+import TimelineFlusso from '@/components/timeline-flusso'
+import { valutazioneToIncarico } from '@/app/(app)/flusso/actions'
 
 const STATI: Record<string, { label: string; colore: string }> = {
   da_fare: { label: 'Da fare', colore: 'bg-amber-500/20 text-amber-400' },
@@ -24,7 +27,8 @@ export default async function ValutazionePage({
     .select(`
       *,
       clienti (id, nome, cognome, telefono, email),
-      immobili (id, indirizzo, civico, comune)
+      immobili (id, indirizzo, civico, comune),
+      notizie (id, tipo_notizia, created_at)
     `)
     .eq('id', id)
     .single()
@@ -37,12 +41,73 @@ export default async function ValutazionePage({
     .eq('valutazione_id', id)
     .order('data_attivita', { ascending: false })
 
+  // Cerca l'incarico collegato
+  const { data: incarico } = await supabase
+    .from('incarichi')
+    .select('id, data_inizio, stato')
+    .eq('valutazione_id', id)
+    .maybeSingle()
+
+  // Cerca l'immobile collegato all'incarico
+  let immobile = null
+  if (incarico) {
+    const { data: imm } = await supabase
+      .from('immobili')
+      .select('id, indirizzo, civico')
+      .eq('incarico_id', incarico.id)
+      .maybeSingle()
+    immobile = imm
+  }
+
   const cli = Array.isArray(valutazione.clienti) ? valutazione.clienti[0] : valutazione.clienti
   const imm = Array.isArray(valutazione.immobili) ? valutazione.immobili[0] : valutazione.immobili
+  const not = Array.isArray(valutazione.notizie) ? valutazione.notizie[0] : valutazione.notizie
   const stato = STATI[valutazione.stato] || {
     label: valutazione.stato,
     colore: 'bg-slate-700 text-slate-300',
   }
+
+  // Timeline (solo se è nata da una notizia)
+  const timeline = not
+    ? [
+        {
+          label: 'Notizia',
+          icona: '📰',
+          stato: 'completato' as const,
+          link: `/notizie/${not.id}`,
+          data: new Date(not.created_at).toLocaleDateString('it-IT'),
+        },
+        {
+          label: 'Valutazione',
+          icona: '📋',
+          stato: 'completato' as const,
+          data: new Date(valutazione.data_valutazione).toLocaleDateString('it-IT'),
+        },
+        {
+          label: 'Incarico',
+          icona: '📝',
+          stato: incarico
+            ? ('completato' as const)
+            : ('attivo' as const),
+          link: incarico ? `/incarichi/${incarico.id}` : undefined,
+          data: incarico
+            ? new Date(incarico.data_inizio).toLocaleDateString('it-IT')
+            : undefined,
+        },
+        {
+          label: 'Immobile in portafoglio',
+          icona: '🏠',
+          stato: immobile
+            ? ('completato' as const)
+            : incarico
+            ? ('attivo' as const)
+            : ('futuro' as const),
+          link: immobile ? `/immobili/${immobile.id}` : undefined,
+        },
+      ]
+    : null
+
+  const mostraPulsanteIncarico = not && !incarico
 
   return (
     <div className="p-6 lg:p-10">
@@ -84,6 +149,27 @@ export default async function ValutazionePage({
           </div>
         </div>
       </div>
+
+      {/* TIMELINE */}
+      {timeline && (
+        <div className="mb-6">
+          <TimelineFlusso step={timeline} />
+        </div>
+      )}
+
+      {/* PULSANTE CREA INCARICO */}
+      {mostraPulsanteIncarico && (
+        <div className="mb-6">
+          <PulsanteConverti
+            label="Crea incarico"
+            descrizione="Il proprietario ti ha dato il mandato? Crea l'incarico e portalo in portafoglio."
+            azione={valutazioneToIncarico}
+            id={id}
+            colore="blue"
+            icona="📝"
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
@@ -199,7 +285,6 @@ export default async function ValutazionePage({
         )}
       </div>
 
-      {/* ATTIVITÀ */}
       <SezioneAttivita
         entita="valutazione"
         entitaId={id}

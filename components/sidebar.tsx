@@ -14,6 +14,7 @@ const VOCI = [
   { href: '/valutazioni', label: 'Valutazioni', icona: '📋' },
   { href: '/notizie', label: 'Notizie', icona: '📰' },
   { href: '/incarichi', label: 'Incarichi', icona: '📝' },
+  { href: '/proposte', label: 'Proposte', icona: '🤝' },
   { href: '/impostazioni', label: 'Impostazioni', icona: '⚙️' },
 ]
 
