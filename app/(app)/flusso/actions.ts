@@ -1,7 +1,6 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 /**
@@ -43,8 +42,6 @@ export async function notiziaToValutazione(notiziaId: string) {
     .update({ stato: 'in_lavorazione' })
     .eq('id', notiziaId)
 
-  revalidatePath('/notizie')
-  revalidatePath('/valutazioni')
   redirect(`/valutazioni/${nuovaValutazione.id}`)
 }
 
@@ -91,8 +88,6 @@ export async function valutazioneToIncarico(valutazioneId: string) {
     .update({ stato: 'seguita' })
     .eq('id', valutazioneId)
 
-  revalidatePath('/valutazioni')
-  revalidatePath('/incarichi')
   redirect(`/incarichi/${nuovoIncarico.id}`)
 }
 
@@ -104,7 +99,6 @@ export async function incaricoToImmobile(incaricoId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non autenticato')
 
-  // 1. Leggi l'incarico
   const { data: incarico } = await supabase
     .from('incarichi')
     .select('*')
@@ -113,7 +107,6 @@ export async function incaricoToImmobile(incaricoId: string) {
 
   if (!incarico) throw new Error('Incarico non trovato')
 
-  // 2. Leggi la valutazione separatamente
   if (!incarico.valutazione_id) {
     throw new Error('Impossibile creare l\'immobile: manca la valutazione collegata')
   }
@@ -128,7 +121,6 @@ export async function incaricoToImmobile(incaricoId: string) {
     throw new Error('Valutazione non trovata')
   }
 
-  // 3. Crea l'immobile
   const { data: nuovoImmobile, error } = await supabase
     .from('immobili')
     .insert({
@@ -149,7 +141,5 @@ export async function incaricoToImmobile(incaricoId: string) {
 
   if (error) throw new Error(error.message)
 
-  revalidatePath('/incarichi')
-  revalidatePath('/immobili')
   redirect(`/immobili/${nuovoImmobile.id}/modifica`)
 }
