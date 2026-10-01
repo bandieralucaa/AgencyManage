@@ -23,14 +23,10 @@ export default async function IncarichiPage({
   const params = await searchParams
   const supabase = await createClient()
 
+  // 1. Leggi tutti gli incarichi (query semplice, niente join ambigui)
   let query = supabase
     .from('incarichi')
-    .select(`
-      id, tipo, stato, data_inizio, data_scadenza, prezzo, esclusivo,
-      data_chiusura, motivo_chiusura,
-      immobili (id, indirizzo, civico, comune, frazione),
-      clienti (id, nome, cognome)
-    `)
+    .select('id, tipo, stato, data_inizio, data_scadenza, prezzo, esclusivo, data_chiusura, motivo_chiusura, valutazione_id, cliente_id')
     .order('data_scadenza', { ascending: true })
 
   if (params.tipo) query = query.eq('tipo', params.tipo)
@@ -38,14 +34,40 @@ export default async function IncarichiPage({
 
   const { data: incarichi } = await query
 
-  // Recupera gli ID degli incarichi con immobile in portafoglio
-  const { data: immobiliInPortafoglio } = await supabase
-    .from('immobili')
-    .select('incarico_id')
-    .not('incarico_id', 'is', null)
+  // 2. Per ogni incarico, recupera valutazione e cliente in query separate
+  const incarichiConDettagli = await Promise.all(
+    (incarichi || []).map(async (inc: any) => {
+      let valutazione = null
+      let cliente = null
+      let immobilePortafoglio = null
 
-  const incarichiInPortafoglio = new Set(
-    (immobiliInPortafoglio || []).map((i) => i.incarico_id)
+      if (inc.valutazione_id) {
+        const { data: v } = await supabase
+          .from('valutazioni')
+          .select('indirizzo, civico, frazione, comune')
+          .eq('id', inc.valutazione_id)
+          .maybeSingle()
+        valutazione = v
+      }
+
+      if (inc.cliente_id) {
+        const { data: c } = await supabase
+          .from('clienti')
+          .select('nome, cognome')
+          .eq('id', inc.cliente_id)
+          .maybeSingle()
+        cliente = c
+      }
+
+      const { data: i } = await supabase
+        .from('immobili')
+        .select('id, indirizzo, civico, comune')
+        .eq('incarico_id', inc.id)
+        .maybeSingle()
+      immobilePortafoglio = i
+
+      return { ...inc, valutazione, cliente, immobilePortafoglio }
+    })
   )
 
   function formatData(data: string) {
@@ -77,7 +99,8 @@ export default async function IncarichiPage({
         <div>
           <h1 className="text-3xl font-bold">Incarichi</h1>
           <p className="text-slate-400 mt-1">
-            {incarichi?.length || 0} {incarichi?.length === 1 ? 'incarico' : 'incarichi'} trovati
+            {incarichiConDettagli?.length || 0}{' '}
+            {incarichiConDettagli?.length === 1 ? 'incarico' : 'incarichi'} trovati
           </p>
         </div>
         <Link
@@ -90,7 +113,7 @@ export default async function IncarichiPage({
 
       <RicercaIncarichi />
 
-      {incarichi && incarichi.length > 0 ? (
+      {incarichiConDettagli && incarichiConDettagli.length > 0 ? (
         <div className="bg-slate-800 border border-slate-700 rounded-xl overflow-hidden">
           <table className="w-full">
             <thead className="bg-slate-900 border-b border-slate-700">
@@ -105,13 +128,16 @@ export default async function IncarichiPage({
               </tr>
             </thead>
             <tbody>
-              {incarichi.map((i: any) => {
-                const imm = Array.isArray(i.immobili) ? i.immobili[0] : i.immobili
-                const cli = Array.isArray(i.clienti) ? i.clienti[0] : i.clienti
-                const stato = STATI[i.stato] || { label: i.stato, colore: 'bg-slate-700 text-slate-300' }
+              {incarichiConDettagli.map((i: any) => {
+                const val = i.valutazione
+                const cli = i.cliente
+                const inPortafoglio = i.immobilePortafoglio
+                const stato = STATI[i.stato] || {
+                  label: i.stato,
+                  colore: 'bg-slate-700 text-slate-300',
+                }
                 const giorni = giorniAllaScadenza(i.data_scadenza)
                 const isAttivo = i.stato === 'attivo'
-                const inPortafoglio = incarichiInPortafoglio.has(i.id)
 
                 return (
                   <tr
@@ -120,12 +146,12 @@ export default async function IncarichiPage({
                   >
                     <td className="px-5 py-3">
                       <div className="font-medium">
-                        {imm ? `${imm.indirizzo} ${imm.civico || ''}` : '—'}
+                        {val ? `${val.indirizzo} ${val.civico || ''}` : '—'}
                       </div>
-                      {imm && (
+                      {val && (
                         <div className="text-xs text-slate-500 mt-0.5">
-                          {imm.frazione && `${imm.frazione}, `}
-                          {imm.comune}
+                          {val.frazione && `${val.frazione}, `}
+                          {val.comune}
                         </div>
                       )}
                       {inPortafoglio && (
@@ -169,7 +195,9 @@ export default async function IncarichiPage({
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex flex-col gap-1 items-start">
-                        <span className={`text-xs px-2 py-1 rounded whitespace-nowrap ${stato.colore}`}>
+                        <span
+                          className={`text-xs px-2 py-1 rounded whitespace-nowrap ${stato.colore}`}
+                        >
                           {stato.label}
                         </span>
                         {i.stato === 'concluso_male' && i.motivo_chiusura && (
