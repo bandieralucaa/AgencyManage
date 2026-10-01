@@ -17,35 +17,122 @@ export default async function DashboardPage() {
   // Google Calendar
   const calendario = await getStatoCalendario(user.id)
 
-  // Cose da fare (attività con scadenza, non completate)
-  const { data: coseDaFare } = await supabase
+  // === COSE DA FARE ===
+  // Query semplice: prendi le attività con scadenza, non completate
+  const { data: coseDaFareRaw } = await supabase
     .from('attivita')
-    .select(`
-      id, descrizione, scadenza, tipo, motivo,
-      incarico_id, richiesta_id, valutazione_id, notizia_id, immobile_id, cliente_id,
-      incarichi (immobili (indirizzo, civico, comune)),
-      richieste (clienti (nome, cognome)),
-      valutazioni (indirizzo, civico),
-      notizie (indirizzo, civico),
-      immobili (indirizzo, civico),
-      clienti (nome, cognome)
-    `)
+    .select('id, descrizione, scadenza, tipo, motivo, incarico_id, richiesta_id, valutazione_id, notizia_id, immobile_id, cliente_id')
     .eq('completata', false)
     .not('scadenza', 'is', null)
     .order('scadenza', { ascending: true })
     .limit(10)
 
+  // Per ogni attività, recupera l'etichetta dell'entità collegata
+  const coseDaFare = await Promise.all(
+    (coseDaFareRaw || []).map(async (a: any) => {
+      let etichetta = ''
+      let link = ''
+
+      if (a.incarico_id) {
+        link = `/incarichi/${a.incarico_id}`
+        const { data: inc } = await supabase
+          .from('incarichi')
+          .select('valutazione_id')
+          .eq('id', a.incarico_id)
+          .maybeSingle()
+        if (inc?.valutazione_id) {
+          const { data: v } = await supabase
+            .from('valutazioni')
+            .select('indirizzo, civico, comune')
+            .eq('id', inc.valutazione_id)
+            .maybeSingle()
+          if (v) etichetta = `${v.indirizzo} ${v.civico || ''}, ${v.comune}`
+        }
+        if (!etichetta) etichetta = 'Incarico'
+      } else if (a.richiesta_id) {
+        link = `/richieste/${a.richiesta_id}`
+        const { data: r } = await supabase
+          .from('richieste')
+          .select('cliente_id')
+          .eq('id', a.richiesta_id)
+          .maybeSingle()
+        if (r?.cliente_id) {
+          const { data: c } = await supabase
+            .from('clienti')
+            .select('nome, cognome')
+            .eq('id', r.cliente_id)
+            .maybeSingle()
+          if (c) etichetta = `Richiesta di ${c.cognome} ${c.nome}`
+        }
+        if (!etichetta) etichetta = 'Richiesta'
+      } else if (a.valutazione_id) {
+        link = `/valutazioni/${a.valutazione_id}`
+        const { data: v } = await supabase
+          .from('valutazioni')
+          .select('indirizzo, civico')
+          .eq('id', a.valutazione_id)
+          .maybeSingle()
+        if (v) etichetta = `Valutazione ${v.indirizzo} ${v.civico || ''}`
+        else etichetta = 'Valutazione'
+      } else if (a.notizia_id) {
+        link = `/notizie/${a.notizia_id}`
+        const { data: n } = await supabase
+          .from('notizie')
+          .select('indirizzo, civico')
+          .eq('id', a.notizia_id)
+          .maybeSingle()
+        if (n?.indirizzo) etichetta = `Notizia ${n.indirizzo} ${n.civico || ''}`
+        else etichetta = 'Notizia'
+      } else if (a.immobile_id) {
+        link = `/immobili/${a.immobile_id}`
+        const { data: im } = await supabase
+          .from('immobili')
+          .select('indirizzo, civico')
+          .eq('id', a.immobile_id)
+          .maybeSingle()
+        if (im) etichetta = `${im.indirizzo} ${im.civico || ''}`
+        else etichetta = 'Immobile'
+      } else if (a.cliente_id) {
+        link = `/clienti/${a.cliente_id}`
+        const { data: c } = await supabase
+          .from('clienti')
+          .select('nome, cognome')
+          .eq('id', a.cliente_id)
+          .maybeSingle()
+        if (c) etichetta = `${c.cognome} ${c.nome}`
+        else etichetta = 'Cliente'
+      }
+
+      return { ...a, etichetta, link }
+    })
+  )
+
   // Scadenze incarichi (prossimi 90 giorni)
   const oggi = new Date()
   const novantaGiorni = new Date(oggi.getTime() + 90 * 24 * 60 * 60 * 1000)
-  const { data: scadenze } = await supabase
+  const { data: scadenzeRaw } = await supabase
     .from('incarichi')
-    .select('id, tipo, data_scadenza, prezzo, esclusivo, immobili(indirizzo, civico, comune)')
+    .select('id, tipo, data_scadenza, prezzo, esclusivo, valutazione_id')
     .eq('stato', 'attivo')
     .gte('data_scadenza', oggi.toISOString().split('T')[0])
     .lte('data_scadenza', novantaGiorni.toISOString().split('T')[0])
     .order('data_scadenza', { ascending: true })
     .limit(10)
+
+  const scadenze = await Promise.all(
+    (scadenzeRaw || []).map(async (s: any) => {
+      let immobile = null
+      if (s.valutazione_id) {
+        const { data: v } = await supabase
+          .from('valutazioni')
+          .select('indirizzo, civico, comune')
+          .eq('id', s.valutazione_id)
+          .maybeSingle()
+        immobile = v
+      }
+      return { ...s, immobile }
+    })
+  )
 
   // Compleanni (prossimi 30 giorni)
   const { data: tuttiClienti } = await supabase
@@ -87,55 +174,13 @@ export default async function DashboardPage() {
     return Math.ceil((d.getTime() - o.getTime()) / (1000 * 60 * 60 * 24))
   }
 
-  function linkEntita(a: any) {
-    if (a.incarico_id) return `/incarichi/${a.incarico_id}`
-    if (a.richiesta_id) return `/richieste/${a.richiesta_id}`
-    if (a.valutazione_id) return `/valutazioni/${a.valutazione_id}`
-    if (a.notizia_id) return `/notizie/${a.notizia_id}`
-    if (a.immobile_id) return `/immobili/${a.immobile_id}`
-    if (a.cliente_id) return `/clienti/${a.cliente_id}`
-    return null
-  }
-
-  function etichettaAttivita(a: any) {
-    if (a.incarichi) {
-      const i = Array.isArray(a.incarichi) ? a.incarichi[0] : a.incarichi
-      const imm = i?.immobili
-      const im = Array.isArray(imm) ? imm[0] : imm
-      return im ? `${im.indirizzo} ${im.civico || ''}, ${im.comune}` : 'Incarico'
-    }
-    if (a.richieste) {
-      const r = Array.isArray(a.richieste) ? a.richieste[0] : a.richieste
-      const c = r?.clienti
-      const cli = Array.isArray(c) ? c[0] : c
-      return cli ? `Richiesta di ${cli.cognome} ${cli.nome}` : 'Richiesta'
-    }
-    if (a.valutazioni) {
-      const v = Array.isArray(a.valutazioni) ? a.valutazioni[0] : a.valutazioni
-      return v ? `Valutazione ${v.indirizzo} ${v.civico || ''}` : 'Valutazione'
-    }
-    if (a.notizie) {
-      const n = Array.isArray(a.notizie) ? a.notizie[0] : a.notizie
-      return n?.indirizzo ? `Notizia ${n.indirizzo} ${n.civico || ''}` : 'Notizia'
-    }
-    if (a.immobili) {
-      const i = Array.isArray(a.immobili) ? a.immobili[0] : a.immobili
-      return i ? `${i.indirizzo} ${i.civico || ''}` : 'Immobile'
-    }
-    if (a.clienti) {
-      const c = Array.isArray(a.clienti) ? a.clienti[0] : a.clienti
-      return c ? `${c.cognome} ${c.nome}` : 'Cliente'
-    }
-    return ''
-  }
-
   return (
     <div className="p-6 lg:p-10">
       <h1 className="text-3xl font-bold mb-2">Ciao, {agente?.nome} 👋</h1>
       <p className="text-slate-400 mb-8">Panoramica del tuo lavoro di oggi.</p>
 
       {/* COSE DA FARE */}
-      {coseDaFare && coseDaFare.length > 0 && (
+      {coseDaFare.length > 0 && (
         <div className="bg-slate-800 border border-amber-500/30 rounded-xl p-6 mb-6">
           <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
             ⚡ Cose da fare
@@ -147,30 +192,28 @@ export default async function DashboardPage() {
             {coseDaFare.map((a: any) => {
               const giorni = giorniAllaScadenza(a.scadenza)
               const scaduta = giorni < 0
-              const oggi = giorni === 0
-              const link = linkEntita(a)
-              const etichetta = etichettaAttivita(a)
+              const oggiTask = giorni === 0
 
               const contenuto = (
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-white">{a.descrizione}</div>
-                    {etichetta && (
-                      <div className="text-xs text-slate-500 mt-0.5">{etichetta}</div>
+                    {a.etichetta && (
+                      <div className="text-xs text-slate-500 mt-0.5">{a.etichetta}</div>
                     )}
                   </div>
                   <div
                     className={`text-xs font-medium px-2 py-1 rounded whitespace-nowrap ${
                       scaduta
                         ? 'bg-red-500/20 text-red-400'
-                        : oggi
+                        : oggiTask
                         ? 'bg-amber-500/20 text-amber-400'
                         : 'bg-blue-500/20 text-blue-400'
                     }`}
                   >
                     {scaduta
                       ? `Scaduta ${Math.abs(giorni)} gg fa`
-                      : oggi
+                      : oggiTask
                       ? 'Oggi'
                       : `Entro ${formatData(a.scadenza)}`}
                   </div>
@@ -182,9 +225,9 @@ export default async function DashboardPage() {
                   key={a.id}
                   className="border-b border-slate-700 last:border-0 pb-2 last:pb-0"
                 >
-                  {link ? (
+                  {a.link ? (
                     <a
-                      href={link}
+                      href={a.link}
                       className="flex items-start gap-3 hover:bg-slate-700/40 -mx-2 px-2 py-2 rounded transition-colors"
                     >
                       {contenuto}
@@ -249,8 +292,8 @@ export default async function DashboardPage() {
           </h3>
           {scadenze && scadenze.length > 0 ? (
             <ul className="space-y-3">
-              {scadenze.map((s) => {
-                const imm = Array.isArray(s.immobili) ? s.immobili[0] : s.immobili
+              {scadenze.map((s: any) => {
+                const imm = s.immobile
                 const giorni = Math.ceil(
                   (new Date(s.data_scadenza).getTime() - oggi.getTime()) /
                     (1000 * 60 * 60 * 24)
@@ -263,7 +306,7 @@ export default async function DashboardPage() {
                   >
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">
-                        {imm?.indirizzo} {imm?.civico}, {imm?.comune}
+                        {imm ? `${imm.indirizzo} ${imm.civico || ''}, ${imm.comune}` : 'Incarico'}
                       </div>
                       <div className="text-xs text-slate-400 mt-1">
                         {s.tipo === 'vendita' ? 'Vendita' : 'Affitto'}
