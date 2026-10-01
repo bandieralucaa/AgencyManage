@@ -73,9 +73,9 @@ export default function Sidebar({
         <div className="px-5 py-5 border-b border-slate-700">
           <Link href="/dashboard" className="flex items-center gap-2" onClick={() => setMenuAperto(false)}>
             <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-sm font-bold">
-              CM
+              AM
             </div>
-            <span className="font-bold text-lg">CasaManager</span>
+            <span className="font-bold text-lg">AgencyManage</span>
           </Link>
         </div>
 

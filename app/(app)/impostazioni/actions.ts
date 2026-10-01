@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-const DOMINIO_FINTO = 'casamanager.local'
+const DOMINIO_FINTO = 'agencymanage.local'
 
 export async function aggiornaProfilo(
   nome: string,

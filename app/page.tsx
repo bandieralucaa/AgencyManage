@@ -4,7 +4,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-slate-900 text-white flex items-center justify-center p-8">
       <div className="max-w-2xl text-center">
-        <h1 className="text-4xl font-bold mb-4">CasaManager</h1>
+        <h1 className="text-4xl font-bold mb-4">AgencyManage</h1>
         <p className="text-xl text-slate-300 mb-8">
           Gestionale interno per agenzie immobiliari.
         </p>

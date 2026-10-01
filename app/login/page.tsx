@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-const DOMINIO_FINTO = 'casamanager.local'
+const DOMINIO_FINTO = 'agencymanage.local'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -41,7 +41,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="bg-slate-800 rounded-2xl shadow-2xl p-8 border border-slate-700">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-white">CasaManager</h1>
+            <h1 className="text-3xl font-bold text-white">AgencyManage</h1>
             <p className="text-slate-400 mt-2 text-sm">Gestionale agenzia immobiliare</p>
           </div>
 
@@ -96,7 +96,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-slate-500 text-xs mt-6">
-          © CasaManager — Accesso riservato
+          © AgencyManage — Accesso riservato
         </p>
       </div>
     </div>

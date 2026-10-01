@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "CasaManager",
-  description: "Gestionale agenzia immobiliare",
-};
+  title: 'AgencyManage',
+  description: 'Gestionale agenzia immobiliare',
+}
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
