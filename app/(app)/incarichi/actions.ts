@@ -15,14 +15,10 @@ export async function creaIncarico(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non autenticato')
 
-  const immobileId = formData.get('immobile_id') as string
   const clienteId = formData.get('cliente_id') as string
   const stato = (formData.get('stato') as string) || 'attivo'
 
-  if (!immobileId) throw new Error('Immobile obbligatorio')
-
   const insertData: any = {
-    immobile_id: immobileId,
     cliente_id: clienteId || null,
     agente_id: user.id,
     tipo: formData.get('tipo') as string,
@@ -50,14 +46,10 @@ export async function creaIncarico(formData: FormData) {
 export async function aggiornaIncarico(id: string, formData: FormData) {
   const supabase = await createClient()
 
-  const immobileId = formData.get('immobile_id') as string
   const clienteId = formData.get('cliente_id') as string
   const stato = formData.get('stato') as string
 
-  if (!immobileId) throw new Error('Immobile obbligatorio')
-
   const update: any = {
-    immobile_id: immobileId,
     cliente_id: clienteId || null,
     tipo: formData.get('tipo') as string,
     data_inizio: formData.get('data_inizio') as string,

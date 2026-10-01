@@ -21,11 +21,9 @@ export default function FormIncarico({
 }) {
   const supabase = createClient()
   const [clienti, setClienti] = useState<Opzione[]>([])
-  const [immobili, setImmobili] = useState<Opzione[]>([])
   const [errore, setErrore] = useState('')
 
   const [form, setForm] = useState({
-    immobile_id: incarico?.immobile_id ?? '',
     cliente_id: incarico?.cliente_id ?? '',
     tipo: incarico?.tipo ?? 'vendita',
     data_inizio: incarico?.data_inizio ?? new Date().toISOString().split('T')[0],
@@ -52,36 +50,20 @@ export default function FormIncarico({
 
   useEffect(() => {
     async function carica() {
-      const [c, i] = await Promise.all([
-        supabase
-          .from('clienti')
-          .select('id, nome, cognome')
-          .eq('attivo', true)
-          .order('cognome', { ascending: true }),
-        supabase
-          .from('immobili')
-          .select('id, indirizzo, civico, comune')
-          .eq('attivo', true)
-          .order('indirizzo', { ascending: true }),
-      ])
-      if (c.data) {
+      const { data } = await supabase
+        .from('clienti')
+        .select('id, nome, cognome')
+        .eq('attivo', true)
+        .order('cognome', { ascending: true })
+      if (data) {
         setClienti(
-          c.data.map((x) => ({ id: x.id, label: `${x.cognome} ${x.nome}` }))
-        )
-      }
-      if (i.data) {
-        setImmobili(
-          i.data.map((x) => ({
-            id: x.id,
-            label: `${x.indirizzo} ${x.civico || ''}, ${x.comune}`,
-          }))
+          data.map((x) => ({ id: x.id, label: `${x.cognome} ${x.nome}` }))
         )
       }
     }
     carica()
   }, [supabase])
 
-  const mostraChiusura = form.stato !== 'attivo'
   const isConclusoBene = form.stato === 'concluso_bene'
   const isConclusoMale = form.stato === 'concluso_male'
 
@@ -99,47 +81,26 @@ export default function FormIncarico({
       }}
       className="space-y-8"
     >
-      {/* IMMOBILE E CLIENTE */}
+      {/* CLIENTE */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4">Immobile e cliente</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Immobile *
-            </label>
-            <select
-              name="immobile_id"
-              required
-              value={form.immobile_id}
-              onChange={(e) => upd('immobile_id', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">— Seleziona immobile —</option>
-              {immobili.map((i) => (
-                <option key={i.id} value={i.id}>
-                  {i.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Cliente venditore (opzionale)
-            </label>
-            <select
-              name="cliente_id"
-              value={form.cliente_id}
-              onChange={(e) => upd('cliente_id', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">— Nessuno —</option>
-              {clienti.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-          </div>
+        <h2 className="text-lg font-semibold mb-4">Cliente</h2>
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Cliente venditore (opzionale)
+          </label>
+          <select
+            name="cliente_id"
+            value={form.cliente_id}
+            onChange={(e) => upd('cliente_id', e.target.value)}
+            className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">— Nessuno —</option>
+            {clienti.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+              </option>
+            ))}
+          </select>
         </div>
       </section>
 
