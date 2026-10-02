@@ -16,7 +16,10 @@ export default function RicercaValutazioni() {
 
   useEffect(() => {
     async function caricaFrazioni() {
-      const { data } = await supabase.from('strade').select('frazione')
+      const { data } = await supabase
+        .from('strade')
+        .select('frazione')
+        .limit(20000)
       if (data) {
         const uniche = Array.from(
           new Set(data.map((s) => s.frazione).filter(Boolean))

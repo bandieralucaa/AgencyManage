@@ -98,6 +98,7 @@ export default function FormRichiesta({
       const { data: stradeData } = await supabase
         .from('strade')
         .select('frazione')
+        .limit(20000)
       if (stradeData) {
         const uniche = Array.from(
           new Set(stradeData.map((s) => s.frazione).filter(Boolean))

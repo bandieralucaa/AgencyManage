@@ -45,6 +45,7 @@ export default function FormNotizia({
       const { data: frazioniData } = await supabase
         .from('strade')
         .select('frazione')
+        .limit(20000)
       if (frazioniData) {
         const uniche = Array.from(
           new Set(frazioniData.map((s) => s.frazione).filter(Boolean))
