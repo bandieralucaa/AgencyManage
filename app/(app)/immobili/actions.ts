@@ -10,9 +10,52 @@ function numOrNull(v: FormDataEntryValue | null) {
   return isNaN(n) ? null : n
 }
 
+function stringOrNull(v: FormDataEntryValue | null) {
+  if (!v || v === '') return null
+  return (v as string).trim()
+}
+
 function categoriaDaTipo(tipo: string): string {
   const tipiCasa = ['appartamento', 'villa', 'villetta', 'rustico']
   return tipiCasa.includes(tipo) ? 'casa' : 'non_casa'
+}
+
+/**
+ * Auto-alimenta la tabella `strade`: se la via+civico+comune non esiste, la aggiunge.
+ */
+async function salvaViaInStrade(
+  supabase: any,
+  via: string | null,
+  civico: string | null,
+  comune: string | null,
+  frazione: string | null,
+  cap: string | null
+) {
+  if (!via || !comune) return
+
+  console.log('🔵 Tentativo salvataggio via in strade:', { via, civico, comune, frazione, cap })
+
+  const { error } = await supabase
+    .from('strade')
+    .upsert(
+      {
+        via: via.trim(),
+        civico: civico?.trim() || null,
+        comune: comune.trim(),
+        frazione: frazione?.trim() || null,
+        cap: cap?.trim() || null,
+      },
+      {
+        onConflict: 'via,civico,comune',
+        ignoreDuplicates: true,
+      }
+    )
+
+  if (error) {
+    console.error('🔴 Errore salvataggio via in strade:', error.message)
+  } else {
+    console.log('✅ Via salvata o già esistente')
+  }
 }
 
 export async function creaImmobile(formData: FormData) {
@@ -50,6 +93,16 @@ export async function creaImmobile(formData: FormData) {
   })
 
   if (error) throw new Error(error.message)
+
+  await salvaViaInStrade(
+    supabase,
+    stringOrNull(formData.get('indirizzo')),
+    stringOrNull(formData.get('civico')),
+    stringOrNull(formData.get('comune')),
+    stringOrNull(formData.get('frazione')),
+    stringOrNull(formData.get('cap'))
+  )
+
   revalidatePath('/immobili')
   redirect('/immobili')
 }
@@ -89,6 +142,16 @@ export async function aggiornaImmobile(id: string, formData: FormData) {
     .eq('id', id)
 
   if (error) throw new Error(error.message)
+
+  await salvaViaInStrade(
+    supabase,
+    stringOrNull(formData.get('indirizzo')),
+    stringOrNull(formData.get('civico')),
+    stringOrNull(formData.get('comune')),
+    stringOrNull(formData.get('frazione')),
+    stringOrNull(formData.get('cap'))
+  )
+
   revalidatePath('/immobili')
   revalidatePath(`/immobili/${id}`)
   redirect(`/immobili/${id}`)

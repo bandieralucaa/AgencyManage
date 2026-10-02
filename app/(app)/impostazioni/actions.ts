@@ -2,175 +2,76 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
 
-function numOrNull(v: FormDataEntryValue | null) {
-  if (!v || v === '') return null
-  const n = Number(v)
-  return isNaN(n) ? null : n
-}
+const DOMINIO_FINTO = 'agencymanage.local'
 
-function stringOrNull(v: FormDataEntryValue | null) {
-  if (!v || v === '') return null
-  return (v as string).trim()
-}
-
-function categoriaDaTipo(tipo: string): string {
-  const tipiCasa = ['appartamento', 'villa', 'villetta', 'rustico']
-  return tipiCasa.includes(tipo) ? 'casa' : 'non_casa'
-}
-
-/**
- * Auto-alimenta la tabella `strade`: se la via+civico+comune non esiste, la aggiunge.
- * Se esiste già, non fa nulla (grazie al vincolo unique + ignoreDuplicates).
- */
-async function salvaViaInStrade(
-  supabase: any,
-  via: string | null,
-  civico: string | null,
-  comune: string | null,
-  frazione: string | null,
-  cap: string | null
-) {
-  if (!via || !comune) return
-
-  const { error } = await supabase
-    .from('strade')
-    .upsert(
-      {
-        via: via.trim(),
-        civico: civico?.trim() || null,
-        comune: comune.trim(),
-        frazione: frazione?.trim() || null,
-        cap: cap?.trim() || null,
-      },
-      {
-        onConflict: 'via,civico,comune',
-        ignoreDuplicates: true,
-      }
-    )
-
-  // Non blocchiamo il salvataggio dell'immobile se c'è un errore qui
-  if (error) {
-    console.warn('⚠️ Errore salvataggio via in strade:', error.message)
-  }
-}
-
-export async function creaImmobile(formData: FormData) {
+export async function aggiornaProfilo(
+  nome: string,
+  cognome: string
+): Promise<{ ok: boolean; errore?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Non autenticato')
+  if (!user) return { ok: false, errore: 'Non autenticato' }
 
-  const tipo = formData.get('tipo') as string
+  const { error } = await supabase
+    .from('agenti')
+    .update({ nome, cognome })
+    .eq('id', user.id)
 
-  const { error } = await supabase.from('immobili').insert({
-    tipo,
-    categoria: categoriaDaTipo(tipo),
-    indirizzo: formData.get('indirizzo') as string,
-    civico: formData.get('civico') || null,
-    frazione: formData.get('frazione') || null,
-    comune: formData.get('comune') as string,
-    cap: formData.get('cap') || null,
-    provincia: formData.get('provincia') || null,
-    piano: formData.get('piano') || null,
-    interno: formData.get('interno') || null,
-    scala: formData.get('scala') || null,
-    metri_quadrati: numOrNull(formData.get('metri_quadrati')),
-    vani: numOrNull(formData.get('vani')),
-    camere: numOrNull(formData.get('camere')),
-    bagni: numOrNull(formData.get('bagni')),
-    stato: formData.get('stato') || null,
-    classe_energetica: formData.get('classe_energetica') || null,
-    riscaldamento: formData.get('riscaldamento') || null,
-    anno_costruzione: numOrNull(formData.get('anno_costruzione')),
-    prezzo: numOrNull(formData.get('prezzo')),
-    spese_condominiali: numOrNull(formData.get('spese_condominiali')),
-    descrizione: formData.get('descrizione') || null,
-    note: formData.get('note') || null,
-    agente_id: user.id,
+  if (error) return { ok: false, errore: error.message }
+
+  revalidatePath('/impostazioni')
+  return { ok: true }
+}
+
+export async function cambiaPassword(
+  username: string,
+  vecchiaPassword: string,
+  nuovaPassword: string
+): Promise<{ ok: boolean; errore?: string }> {
+  const supabase = await createClient()
+
+  if (nuovaPassword.length < 6) {
+    return { ok: false, errore: 'La nuova password deve avere almeno 6 caratteri' }
+  }
+
+  const emailFinta = `${username.toLowerCase().trim()}@${DOMINIO_FINTO}`
+
+  // 1. Verifica la vecchia password facendo un nuovo signIn
+  const { error: signInError } = await supabase.auth.signInWithPassword({
+    email: emailFinta,
+    password: vecchiaPassword,
   })
 
-  if (error) throw new Error(error.message)
+  if (signInError) {
+    return { ok: false, errore: 'Password attuale non corretta' }
+  }
 
-  // Auto-alimenta tabella strade
-  await salvaViaInStrade(
-    supabase,
-    stringOrNull(formData.get('indirizzo')),
-    stringOrNull(formData.get('civico')),
-    stringOrNull(formData.get('comune')),
-    stringOrNull(formData.get('frazione')),
-    stringOrNull(formData.get('cap'))
-  )
+  // 2. Aggiorna la password
+  const { error: updateError } = await supabase.auth.updateUser({
+    password: nuovaPassword,
+  })
 
-  revalidatePath('/immobili')
-  redirect('/immobili')
+  if (updateError) return { ok: false, errore: updateError.message }
+
+  return { ok: true }
 }
 
-export async function aggiornaImmobile(id: string, formData: FormData) {
+export async function scollegaGoogleCalendar(): Promise<{ ok: boolean; errore?: string }> {
   const supabase = await createClient()
-
-  const tipo = formData.get('tipo') as string
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { ok: false, errore: 'Non autenticato' }
 
   const { error } = await supabase
-    .from('immobili')
-    .update({
-      tipo,
-      categoria: categoriaDaTipo(tipo),
-      indirizzo: formData.get('indirizzo') as string,
-      civico: formData.get('civico') || null,
-      frazione: formData.get('frazione') || null,
-      comune: formData.get('comune') as string,
-      cap: formData.get('cap') || null,
-      provincia: formData.get('provincia') || null,
-      piano: formData.get('piano') || null,
-      interno: formData.get('interno') || null,
-      scala: formData.get('scala') || null,
-      metri_quadrati: numOrNull(formData.get('metri_quadrati')),
-      vani: numOrNull(formData.get('vani')),
-      camere: numOrNull(formData.get('camere')),
-      bagni: numOrNull(formData.get('bagni')),
-      stato: formData.get('stato') || null,
-      classe_energetica: formData.get('classe_energetica') || null,
-      riscaldamento: formData.get('riscaldamento') || null,
-      anno_costruzione: numOrNull(formData.get('anno_costruzione')),
-      prezzo: numOrNull(formData.get('prezzo')),
-      spese_condominiali: numOrNull(formData.get('spese_condominiali')),
-      descrizione: formData.get('descrizione') || null,
-      note: formData.get('note') || null,
-    })
-    .eq('id', id)
+    .from('integrazioni_calendario')
+    .delete()
+    .eq('agente_id', user.id)
+    .eq('provider', 'google')
 
-  if (error) throw new Error(error.message)
+  if (error) return { ok: false, errore: error.message }
 
-  // Auto-alimenta tabella strade
-  await salvaViaInStrade(
-    supabase,
-    stringOrNull(formData.get('indirizzo')),
-    stringOrNull(formData.get('civico')),
-    stringOrNull(formData.get('comune')),
-    stringOrNull(formData.get('frazione')),
-    stringOrNull(formData.get('cap'))
-  )
-
-  revalidatePath('/immobili')
-  revalidatePath(`/immobili/${id}`)
-  redirect(`/immobili/${id}`)
-}
-
-export async function eliminaImmobile(id: string) {
-  const supabase = await createClient()
-  const { error } = await supabase.from('immobili').delete().eq('id', id)
-  if (error) throw new Error(error.message)
-  revalidatePath('/immobili')
-  redirect('/immobili')
-}
-
-export async function toggleAttivoImmobile(id: string, attivo: boolean) {
-  const supabase = await createClient()
-  const { error } = await supabase
-    .from('immobili')
-    .update({ attivo: !attivo })
-    .eq('id', id)
-  if (error) throw new Error(error.message)
-  revalidatePath('/immobili')
+  revalidatePath('/impostazioni')
+  revalidatePath('/dashboard')
+  revalidatePath('/agenda')
+  return { ok: true }
 }
