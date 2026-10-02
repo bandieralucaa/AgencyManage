@@ -20,7 +20,7 @@ const CERCA_LABEL: Record<string, string> = {
 export default async function RichiestePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; cerca?: string; stato?: string }>
+    searchParams: Promise<{ q?: string; cerca?: string; stato?: string; frazione?: string }>
 }) {
   const params = await searchParams
   const supabase = await createClient()
@@ -40,6 +40,7 @@ export default async function RichiestePage({
   }
   if (params.cerca) query = query.eq('cerca', params.cerca)
   if (params.stato) query = query.eq('stato', params.stato)
+  if (params.frazione) query = query.contains('frazioni_cercate', [params.frazione])
 
   const { data: richieste } = await query
 

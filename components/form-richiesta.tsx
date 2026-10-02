@@ -6,46 +6,20 @@ import { createClient } from '@/lib/supabase/client'
 type Cliente = { id: string; nome: string; cognome: string }
 
 const TIPOLOGIE_DISPONIBILI = [
-  'appartamento',
-  'villa',
-  'villetta',
-  'rustico',
-  'terreno',
-  'ufficio',
-  'negozio',
-  'magazzino',
-  'garage',
-  'box',
-  'altro',
+  'appartamento', 'villa', 'villetta', 'rustico', 'terreno',
+  'ufficio', 'negozio', 'magazzino', 'garage', 'box', 'altro',
 ]
 
 const TIPOLOGIE_LABEL: Record<string, string> = {
-  appartamento: 'Appartamento',
-  villa: 'Villa',
-  villetta: 'Villetta',
-  rustico: 'Rustico',
-  terreno: 'Terreno',
-  ufficio: 'Ufficio',
-  negozio: 'Negozio',
-  magazzino: 'Magazzino',
-  garage: 'Garage',
-  box: 'Box',
-  altro: 'Altro',
+  appartamento: 'Appartamento', villa: 'Villa', villetta: 'Villetta',
+  rustico: 'Rustico', terreno: 'Terreno', ufficio: 'Ufficio',
+  negozio: 'Negozio', magazzino: 'Magazzino', garage: 'Garage',
+  box: 'Box', altro: 'Altro',
 }
 
-const FRAZIONI_DISPONIBILI = ['Altedo', 'Malalbergo', 'Pegola']
-
 const ACCESSORI_DISPONIBILI = [
-  'Box',
-  'Cantina',
-  'Soffitta',
-  'Rustico',
-  'Taverna',
-  'Giardino',
-  'Terrazzo',
-  'Ascensore',
-  'Balcone',
-  'Piscina',
+  'Box', 'Cantina', 'Soffitta', 'Rustico', 'Taverna',
+  'Giardino', 'Terrazzo', 'Ascensore', 'Balcone', 'Piscina',
 ]
 
 const STATI_IMMOBILE = [
@@ -65,6 +39,7 @@ export default function FormRichiesta({
 }) {
   const supabase = createClient()
   const [clienti, setClienti] = useState<Cliente[]>([])
+  const [frazioniDisponibili, setFrazioniDisponibili] = useState<string[]>([])
 
   const [suggerimentiFrazioni, setSuggerimentiFrazioni] = useState<string[]>([])
   const [mostraSuggerimentiFrazioni, setMostraSuggerimentiFrazioni] = useState(false)
@@ -113,38 +88,40 @@ export default function FormRichiesta({
 
   useEffect(() => {
     async function carica() {
-      const { data } = await supabase
+      const { data: clientiData } = await supabase
         .from('clienti')
         .select('id, nome, cognome')
         .eq('attivo', true)
         .order('cognome', { ascending: true })
-      if (data) setClienti(data)
+      if (clientiData) setClienti(clientiData)
+
+      const { data: stradeData } = await supabase
+        .from('strade')
+        .select('frazione')
+      if (stradeData) {
+        const uniche = Array.from(
+          new Set(stradeData.map((s) => s.frazione).filter(Boolean))
+        ).sort() as string[]
+        setFrazioniDisponibili(uniche)
+      }
     }
     carica()
   }, [supabase])
 
-  // Auto-compila comune e CAP in base alla PRIMA frazione selezionata
   async function aggiornaComuneCap(frazioniStr: string) {
-    const parti = frazioniStr
-      .split(',')
-      .map((f: string) => f.trim())
-      .filter(Boolean)
-
+    const parti = frazioniStr.split(',').map((f: string) => f.trim()).filter(Boolean)
     if (parti.length === 0) {
       upd('comune', '')
       upd('cap', '')
       return
     }
-
     const primaFrazione = parti[0]
-
     const { data } = await supabase
       .from('strade')
       .select('comune, cap')
       .eq('frazione', primaFrazione)
       .limit(1)
       .maybeSingle()
-
     if (data) {
       upd('comune', data.comune || '')
       upd('cap', data.cap || '')
@@ -164,12 +141,12 @@ export default function FormRichiesta({
       .slice(0, -1)
       .map((p: string) => p.trim().toLowerCase())
       .filter(Boolean)
-    const filtrati = FRAZIONI_DISPONIBILI.filter(
+    const filtrati = frazioniDisponibili.filter(
       (f) =>
         f.toLowerCase().startsWith(ultima) &&
         !giaInseriti.includes(f.toLowerCase())
     )
-    setSuggerimentiFrazioni(filtrati)
+    setSuggerimentiFrazioni(filtrati.slice(0, 10))
     setMostraSuggerimentiFrazioni(true)
   }
 
@@ -181,8 +158,6 @@ export default function FormRichiesta({
     upd('frazioni_cercate', finale)
     setSuggerimentiFrazioni([])
     setMostraSuggerimentiFrazioni(false)
-
-    // Auto-compila comune e CAP dalla prima frazione
     await aggiornaComuneCap(finale)
   }
 
@@ -307,7 +282,7 @@ export default function FormRichiesta({
 
           <div className="relative">
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Frazioni <span className="text-slate-500 text-xs">(Altedo, Malalbergo, Pegola)</span>
+              Frazioni <span className="text-slate-500 text-xs">(separate da virgola)</span>
             </label>
             <input
               type="text"
@@ -321,7 +296,7 @@ export default function FormRichiesta({
               }}
               onBlur={() => setTimeout(() => setMostraSuggerimentiFrazioni(false), 200)}
               autoComplete="off"
-              placeholder="Es. Altedo, Pegola"
+              placeholder="Es. Malalbergo, Boschi, Saletto..."
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {mostraSuggerimentiFrazioni && suggerimentiFrazioni.length > 0 && (
@@ -479,7 +454,7 @@ export default function FormRichiesta({
         </div>
       </section>
 
-      {/* ACCESSORI E PERTINENZE */}
+      {/* ACCESSORI */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">Accessori e pertinenze</h2>
         <input type="hidden" name="accessori" value={form.accessori.join(',')} />

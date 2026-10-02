@@ -5,8 +5,6 @@ import { createClient } from '@/lib/supabase/client'
 
 type Cliente = { id: string; nome: string; cognome: string }
 
-const FRAZIONI_DISPONIBILI = ['Altedo', 'Malalbergo', 'Pegola']
-
 export default function FormNotizia({
   notizia,
   action,
@@ -16,17 +14,17 @@ export default function FormNotizia({
 }) {
   const supabase = createClient()
   const [clienti, setClienti] = useState<Cliente[]>([])
+  const [frazioniDisponibili, setFrazioniDisponibili] = useState<string[]>([])
   const [suggerimentiFrazioni, setSuggerimentiFrazioni] = useState<string[]>([])
   const [mostraSuggerimentiFrazioni, setMostraSuggerimentiFrazioni] = useState(false)
 
   const [form, setForm] = useState({
-    tipo_notizia: notizia?.tipo_notizia ?? 'cliente_cerca',
     cliente_id: notizia?.cliente_id ?? '',
     tipo: notizia?.tipo ?? 'agenzia',
     indirizzo: notizia?.indirizzo ?? '',
     civico: notizia?.civico ?? '',
     frazione: notizia?.frazione ?? '',
-    comune: notizia?.comune ?? 'Malalbergo',
+    comune: notizia?.comune ?? '',
     stato: notizia?.stato ?? 'aperta',
     motivo_chiusura: notizia?.motivo_chiusura ?? '',
   })
@@ -37,12 +35,22 @@ export default function FormNotizia({
 
   useEffect(() => {
     async function carica() {
-      const { data } = await supabase
+      const { data: clientiData } = await supabase
         .from('clienti')
         .select('id, nome, cognome')
         .eq('attivo', true)
         .order('cognome', { ascending: true })
-      if (data) setClienti(data)
+      if (clientiData) setClienti(clientiData)
+
+      const { data: frazioniData } = await supabase
+        .from('strade')
+        .select('frazione')
+      if (frazioniData) {
+        const uniche = Array.from(
+          new Set(frazioniData.map((s) => s.frazione).filter(Boolean))
+        ).sort() as string[]
+        setFrazioniDisponibili(uniche)
+      }
     }
     carica()
   }, [supabase])
@@ -55,10 +63,10 @@ export default function FormNotizia({
       setMostraSuggerimentiFrazioni(false)
       return
     }
-    const filtrati = FRAZIONI_DISPONIBILI.filter((f) =>
+    const filtrati = frazioniDisponibili.filter((f) =>
       f.toLowerCase().startsWith(ultima)
     )
-    setSuggerimentiFrazioni(filtrati)
+    setSuggerimentiFrazioni(filtrati.slice(0, 10))
     setMostraSuggerimentiFrazioni(true)
   }
 
@@ -69,49 +77,9 @@ export default function FormNotizia({
   }
 
   const mostraMotivoChiusura = form.stato.startsWith('chiusa_')
-  const isClienteCerca = form.tipo_notizia === 'cliente_cerca'
-  const isImmobileVendesi = form.tipo_notizia === 'immobile_vendesi'
 
   return (
     <form action={action} className="space-y-8">
-      {/* TIPO NOTIZIA */}
-      <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4">Tipo di notizia *</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => upd('tipo_notizia', 'cliente_cerca')}
-            className={`text-left px-5 py-4 rounded-xl border-2 transition-colors ${
-              isClienteCerca
-                ? 'border-blue-500 bg-blue-500/10'
-                : 'border-slate-700 bg-slate-900 hover:border-slate-600'
-            }`}
-          >
-            <div className="text-2xl mb-1">🔍</div>
-            <div className="font-semibold text-white">Cliente cerca casa</div>
-            <div className="text-xs text-slate-400 mt-1">
-              Un potenziale acquirente o inquilino
-            </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => upd('tipo_notizia', 'immobile_vendesi')}
-            className={`text-left px-5 py-4 rounded-xl border-2 transition-colors ${
-              isImmobileVendesi
-                ? 'border-emerald-500 bg-emerald-500/10'
-                : 'border-slate-700 bg-slate-900 hover:border-slate-600'
-            }`}
-          >
-            <div className="text-2xl mb-1">🏠</div>
-            <div className="font-semibold text-white">Immobile da vendere</div>
-            <div className="text-xs text-slate-400 mt-1">
-              Un immobile che potrebbe entrare in portafoglio
-            </div>
-          </button>
-        </div>
-        <input type="hidden" name="tipo_notizia" value={form.tipo_notizia} />
-      </section>
-
       {/* PROVENIENZA */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">Provenienza</h2>
@@ -157,14 +125,12 @@ export default function FormNotizia({
         </div>
       </section>
 
-      {/* INDIRIZZO (opzionale, se riguarda un immobile specifico) */}
+      {/* INDIRIZZO */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">
           Indirizzo{' '}
           <span className="text-slate-500 text-sm font-normal">
-            {isImmobileVendesi
-              ? '(dell\'immobile da vendere)'
-              : '(opzionale, se il cliente cerca in una zona specifica)'}
+            (opzionale, se riguarda un immobile specifico)
           </span>
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
@@ -207,7 +173,7 @@ export default function FormNotizia({
                 setTimeout(() => setMostraSuggerimentiFrazioni(false), 200)
               }
               autoComplete="off"
-              placeholder="Es. Altedo, Pegola"
+              placeholder="Es. Malalbergo, Boschi, Saletto..."
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {mostraSuggerimentiFrazioni && suggerimentiFrazioni.length > 0 && (
