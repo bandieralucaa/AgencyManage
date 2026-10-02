@@ -23,7 +23,7 @@ body {
 }
 
 /* ============================================================ */
-/* TEMA CHIARO — palette "zinc" pulita                          */
+/* TEMA CHIARO — palette ZINC + accenti EMERALD                 */
 /* ============================================================ */
 
 html.light {
@@ -86,8 +86,9 @@ html.light textarea::placeholder {
 html.light input:focus,
 html.light select:focus,
 html.light textarea:focus {
-  border-color: #18181b !important;
+  border-color: #059669 !important;
   outline: none !important;
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15) !important;
 }
 
 /* ---------- SHADOW più delicato ---------- */
@@ -98,32 +99,59 @@ html.light .shadow-2xl {
     0 2px 6px -2px rgba(24, 24, 27, 0.04) !important;
 }
 
-/* ---------- BADGE / ACCENTI (restano vivi) ---------- */
+/* ---------- ACCENTI — palette EMERALD ---------- */
+
+/* Primary: blu → emerald */
+html.light .bg-blue-600              { background-color: #059669 !important; }
+html.light .hover\:bg-blue-700:hover { background-color: #047857 !important; }
+html.light .bg-blue-500              { background-color: #10b981 !important; }
+html.light .bg-blue-500\/20          { background-color: #d1fae5 !important; }
+html.light .bg-blue-500\/15          { background-color: #d1fae5 !important; }
+html.light .bg-blue-500\/10          { background-color: #d1fae5 !important; }
+html.light .text-blue-400            { color: #047857 !important; }
+html.light .text-blue-500            { color: #059669 !important; }
+html.light .border-blue-500          { border-color: #10b981 !important; }
+html.light .border-blue-600          { border-color: #059669 !important; }
+
+/* Emerald nativo */
 html.light .bg-emerald-500\/20 { background-color: #d1fae5 !important; }
 html.light .bg-emerald-500\/15 { background-color: #d1fae5 !important; }
+html.light .bg-emerald-500\/10 { background-color: #d1fae5 !important; }
+html.light .bg-emerald-600     { background-color: #059669 !important; }
 html.light .bg-emerald-500     { background-color: #10b981 !important; }
+html.light .hover\:bg-emerald-700:hover { background-color: #047857 !important; }
 html.light .text-emerald-400   { color: #047857 !important; }
 html.light .text-emerald-500   { color: #059669 !important; }
+html.light .border-emerald-500 { border-color: #10b981 !important; }
+html.light .border-emerald-600 { border-color: #059669 !important; }
 
-html.light .bg-blue-500\/20 { background-color: #dbeafe !important; }
-html.light .bg-blue-500\/15 { background-color: #dbeafe !important; }
-html.light .bg-blue-600     { background-color: #2563eb !important; }
-html.light .text-blue-400   { color: #1d4ed8 !important; }
-html.light .hover\:bg-blue-700:hover { background-color: #1d4ed8 !important; }
-
+/* Amber (warning) */
 html.light .bg-amber-500\/20 { background-color: #fef3c7 !important; }
 html.light .bg-amber-500\/15 { background-color: #fef3c7 !important; }
+html.light .bg-amber-500\/10 { background-color: #fef3c7 !important; }
+html.light .bg-amber-500     { background-color: #f59e0b !important; }
 html.light .text-amber-400   { color: #b45309 !important; }
+html.light .text-amber-500   { color: #d97706 !important; }
 
+/* Red (errore) */
 html.light .bg-red-500\/20 { background-color: #fee2e2 !important; }
 html.light .bg-red-500\/15 { background-color: #fee2e2 !important; }
 html.light .bg-red-500\/10 { background-color: #fee2e2 !important; }
 html.light .bg-red-500\/5  { background-color: #fef2f2 !important; }
+html.light .bg-red-600     { background-color: #dc2626 !important; }
+html.light .hover\:bg-red-700:hover { background-color: #b91c1c !important; }
 html.light .text-red-400   { color: #b91c1c !important; }
+html.light .text-red-500   { color: #dc2626 !important; }
 
+/* Violet / Purple (badge secondari) */
 html.light .bg-purple-500\/20 { background-color: #ede9fe !important; }
+html.light .bg-violet-500\/20 { background-color: #ede9fe !important; }
+html.light .bg-violet-500\/15 { background-color: #ede9fe !important; }
+html.light .bg-violet-600     { background-color: #7c3aed !important; }
 html.light .text-purple-400   { color: #6d28d9 !important; }
+html.light .text-violet-400   { color: #6d28d9 !important; }
 
+/* Pink */
 html.light .bg-pink-500\/20 { background-color: #fce7f3 !important; }
 html.light .text-pink-400   { color: #be185d !important; }
 
