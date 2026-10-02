@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import FormImpostazioni from '@/components/form-impostazioni'
 import SezioneGoogleCalendar from '@/components/sezione-google-calendar'
+import SezioneTema from '@/components/sezione-tema'
 
 export default async function ImpostazioniPage() {
   const supabase = await createClient()
@@ -37,6 +38,7 @@ export default async function ImpostazioniPage() {
 
       <div className="space-y-6">
         <FormImpostazioni agente={agente} />
+        <SezioneTema />
         <SezioneGoogleCalendar connesso={connesso} />
       </div>
     </div>
