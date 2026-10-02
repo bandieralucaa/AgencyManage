@@ -19,6 +19,7 @@ export async function creaNotizia(formData: FormData) {
     civico: formData.get('civico') || null,
     frazione: formData.get('frazione') || null,
     comune: formData.get('comune') || null,
+    cap: formData.get('cap') || null,
     tipo: formData.get('tipo') as string,
     stato: (formData.get('stato') as string) || 'aperta',
     motivo_chiusura: formData.get('motivo_chiusura') || null,
@@ -42,6 +43,7 @@ export async function aggiornaNotizia(id: string, formData: FormData) {
     civico: formData.get('civico') || null,
     frazione: formData.get('frazione') || null,
     comune: formData.get('comune') || null,
+    cap: formData.get('cap') || null,
     tipo: formData.get('tipo') as string,
     stato,
   }

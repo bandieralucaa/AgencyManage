@@ -25,6 +25,7 @@ export default function FormNotizia({
     civico: notizia?.civico ?? '',
     frazione: notizia?.frazione ?? '',
     comune: notizia?.comune ?? '',
+    cap: notizia?.cap ?? '',
     stato: notizia?.stato ?? 'aperta',
     motivo_chiusura: notizia?.motivo_chiusura ?? '',
   })
@@ -67,10 +68,23 @@ export default function FormNotizia({
     setMostraSuggerimentiFrazioni(true)
   }
 
-  function selezionaFrazione(frazione: string) {
+  async function selezionaFrazione(frazione: string) {
     upd('frazione', frazione)
     setSuggerimentiFrazioni([])
     setMostraSuggerimentiFrazioni(false)
+
+    // Auto-compila comune e CAP dalla prima riga di strade con quella frazione
+    const { data } = await supabase
+      .from('strade')
+      .select('comune, cap')
+      .eq('frazione', frazione)
+      .limit(1)
+      .maybeSingle()
+
+    if (data) {
+      upd('comune', data.comune || '')
+      upd('cap', data.cap || '')
+    }
   }
 
   const mostraMotivoChiusura = form.stato.startsWith('chiusa_')
@@ -152,7 +166,7 @@ export default function FormNotizia({
             />
           </div>
 
-          <div className="md:col-span-3 relative">
+          <div className="md:col-span-2 relative">
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Frazione
             </label>
@@ -192,12 +206,28 @@ export default function FormNotizia({
           </div>
 
           <div className="md:col-span-3">
-            <label className="block text-sm font-medium text-slate-300 mb-2">Comune</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Comune <span className="text-slate-500 text-xs">(auto dalla frazione)</span>
+            </label>
             <input
               type="text"
               name="comune"
               value={form.comune}
               onChange={(e) => upd('comune', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <div className="md:col-span-1">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              CAP
+            </label>
+            <input
+              type="text"
+              name="cap"
+              maxLength={5}
+              value={form.cap}
+              onChange={(e) => upd('cap', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
