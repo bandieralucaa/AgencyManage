@@ -43,14 +43,10 @@ export default function FormNotizia({
       if (clientiData) setClienti(clientiData)
 
       const { data: frazioniData } = await supabase
-        .from('strade')
+        .from('frazioni_uniche')
         .select('frazione')
-        .limit(20000)
       if (frazioniData) {
-        const uniche = Array.from(
-          new Set(frazioniData.map((s) => s.frazione).filter(Boolean))
-        ).sort() as string[]
-        setFrazioniDisponibili(uniche)
+        setFrazioniDisponibili(frazioniData.map((s) => s.frazione))
       }
     }
     carica()

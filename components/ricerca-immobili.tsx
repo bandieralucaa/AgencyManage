@@ -21,14 +21,10 @@ export default function RicercaImmobili() {
   useEffect(() => {
     async function caricaFrazioni() {
       const { data } = await supabase
-        .from('strade')
+        .from('frazioni_uniche')
         .select('frazione')
-        .limit(20000)
       if (data) {
-        const uniche = Array.from(
-          new Set(data.map((s) => s.frazione).filter(Boolean))
-        ).sort() as string[]
-        setFrazioniDisponibili(uniche)
+        setFrazioniDisponibili(data.map((s) => s.frazione))
       }
     }
     caricaFrazioni()

@@ -95,15 +95,11 @@ export default function FormRichiesta({
         .order('cognome', { ascending: true })
       if (clientiData) setClienti(clientiData)
 
-      const { data: stradeData } = await supabase
-        .from('strade')
+      const { data: frazioniData } = await supabase
+        .from('frazioni_uniche')
         .select('frazione')
-        .limit(20000)
-      if (stradeData) {
-        const uniche = Array.from(
-          new Set(stradeData.map((s) => s.frazione).filter(Boolean))
-        ).sort() as string[]
-        setFrazioniDisponibili(uniche)
+      if (frazioniData) {
+        setFrazioniDisponibili(frazioniData.map((s) => s.frazione))
       }
     }
     carica()
