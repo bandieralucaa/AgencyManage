@@ -14,9 +14,8 @@ export default function FormNotizia({
 }) {
   const supabase = createClient()
   const [clienti, setClienti] = useState<Cliente[]>([])
-  const [frazioniDisponibili, setFrazioniDisponibili] = useState<string[]>([])
-  const [suggerimentiFrazioni, setSuggerimentiFrazioni] = useState<string[]>([])
-  const [mostraSuggerimentiFrazioni, setMostraSuggerimentiFrazioni] = useState(false)
+  const [suggerimentiVie, setSuggerimentiVie] = useState<string[]>([])
+  const [mostraSuggerimentiVie, setMostraSuggerimentiVie] = useState(false)
 
   const [form, setForm] = useState({
     tipo_notizia: notizia?.tipo_notizia ?? 'cliente_cerca',
@@ -37,52 +36,48 @@ export default function FormNotizia({
 
   useEffect(() => {
     async function carica() {
-      const { data: clientiData } = await supabase
+      const { data } = await supabase
         .from('clienti')
         .select('id, nome, cognome')
         .eq('attivo', true)
         .order('cognome', { ascending: true })
-      if (clientiData) setClienti(clientiData)
-
-      const { data: frazioniData } = await supabase
-        .from('frazioni_uniche')
-        .select('frazione')
-      if (frazioniData) {
-        setFrazioniDisponibili(frazioniData.map((s) => s.frazione))
-      }
+      if (data) setClienti(data)
     }
     carica()
   }, [supabase])
 
-  function handleFrazioniChange(valore: string) {
-    upd('frazione', valore)
-    const ultima = valore.trim().toLowerCase()
-    if (ultima.length < 1) {
-      setSuggerimentiFrazioni([])
-      setMostraSuggerimentiFrazioni(false)
+  // Autocomplete via
+  useEffect(() => {
+    if (form.indirizzo.length < 2) {
+      setSuggerimentiVie([])
       return
     }
-    const filtrati = frazioniDisponibili.filter((f) =>
-      f.toLowerCase().startsWith(ultima)
-    )
-    setSuggerimentiFrazioni(filtrati.slice(0, 10))
-    setMostraSuggerimentiFrazioni(true)
-  }
+    const timer = setTimeout(async () => {
+      const { data } = await supabase
+        .from('strade')
+        .select('via')
+        .ilike('via', `%${form.indirizzo}%`)
+        .limit(50)
+      if (data) {
+        const uniche = [...new Set(data.map((d) => d.via))]
+        setSuggerimentiVie(uniche.slice(0, 10))
+      }
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [form.indirizzo, supabase])
 
-  async function selezionaFrazione(frazione: string) {
-    upd('frazione', frazione)
-    setSuggerimentiFrazioni([])
-    setMostraSuggerimentiFrazioni(false)
-
+  async function selezionaVia(viaSelezionata: string) {
+    upd('indirizzo', viaSelezionata)
+    setMostraSuggerimentiVie(false)
     const { data } = await supabase
       .from('strade')
-      .select('comune, cap')
-      .eq('frazione', frazione)
+      .select('comune, frazione, cap')
+      .eq('via', viaSelezionata)
       .limit(1)
       .maybeSingle()
-
     if (data) {
       upd('comune', data.comune || '')
+      upd('frazione', data.frazione || '')
       upd('cap', data.cap || '')
     }
   }
@@ -187,16 +182,41 @@ export default function FormNotizia({
           </span>
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-          <div className="md:col-span-4">
+          {/* Via con autocomplete */}
+          <div className="md:col-span-4 relative">
             <label className="block text-sm font-medium text-slate-300 mb-2">Via</label>
             <input
               type="text"
               name="indirizzo"
               value={form.indirizzo}
-              onChange={(e) => upd('indirizzo', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => {
+                upd('indirizzo', e.target.value)
+                setMostraSuggerimentiVie(true)
+              }}
+              onFocus={() => setMostraSuggerimentiVie(true)}
+              onBlur={() => setTimeout(() => setMostraSuggerimentiVie(false), 200)}
+              autoComplete="off"
+              placeholder="Inizia a digitare..."
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+            {mostraSuggerimentiVie && suggerimentiVie.length > 0 && (
+              <ul className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
+                {suggerimentiVie.map((s) => (
+                  <li
+                    key={s}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      selezionaVia(s)
+                    }}
+                    className="px-4 py-2 hover:bg-slate-700 cursor-pointer text-white text-sm"
+                  >
+                    {s}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
+
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-300 mb-2">Civico</label>
             <input
@@ -208,7 +228,7 @@ export default function FormNotizia({
             />
           </div>
 
-          <div className="md:col-span-2 relative">
+          <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Frazione
             </label>
@@ -216,40 +236,14 @@ export default function FormNotizia({
               type="text"
               name="frazione"
               value={form.frazione}
-              onChange={(e) => handleFrazioniChange(e.target.value)}
-              onFocus={() => {
-                if (form.frazione.trim().length > 0) {
-                  handleFrazioniChange(form.frazione)
-                }
-              }}
-              onBlur={() =>
-                setTimeout(() => setMostraSuggerimentiFrazioni(false), 200)
-              }
-              autoComplete="off"
-              placeholder="Es. Malalbergo, Boschi, Saletto..."
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={(e) => upd('frazione', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            {mostraSuggerimentiFrazioni && suggerimentiFrazioni.length > 0 && (
-              <ul className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
-                {suggerimentiFrazioni.map((f) => (
-                  <li
-                    key={f}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      selezionaFrazione(f)
-                    }}
-                    className="px-4 py-2 hover:bg-slate-700 cursor-pointer text-white text-sm"
-                  >
-                    {f}
-                  </li>
-                ))}
-              </ul>
-            )}
           </div>
 
           <div className="md:col-span-3">
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Comune <span className="text-slate-500 text-xs">(auto dalla frazione)</span>
+              Comune <span className="text-slate-500 text-xs">(auto dalla via)</span>
             </label>
             <input
               type="text"
@@ -261,9 +255,7 @@ export default function FormNotizia({
           </div>
 
           <div className="md:col-span-1">
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              CAP
-            </label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">CAP</label>
             <input
               type="text"
               name="cap"

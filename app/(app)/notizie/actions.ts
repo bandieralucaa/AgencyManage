@@ -4,6 +4,45 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
+function stringOrNull(v: FormDataEntryValue | null) {
+  if (!v || v === '') return null
+  return (v as string).trim()
+}
+
+/**
+ * Auto-alimenta la tabella `strade`: se la via+civico+comune non esiste, la aggiunge.
+ */
+async function salvaViaInStrade(
+  supabase: any,
+  via: string | null,
+  civico: string | null,
+  comune: string | null,
+  frazione: string | null,
+  cap: string | null
+) {
+  if (!via || !comune) return
+
+  const { error } = await supabase
+    .from('strade')
+    .upsert(
+      {
+        via: via.trim(),
+        civico: civico?.trim() || null,
+        comune: comune.trim(),
+        frazione: frazione?.trim() || null,
+        cap: cap?.trim() || null,
+      },
+      {
+        onConflict: 'via,civico,comune',
+        ignoreDuplicates: true,
+      }
+    )
+
+  if (error) {
+    console.warn('⚠️ Errore salvataggio via in strade:', error.message)
+  }
+}
+
 export async function creaNotizia(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -26,6 +65,17 @@ export async function creaNotizia(formData: FormData) {
   })
 
   if (error) throw new Error(error.message)
+
+  // Auto-alimenta tabella strade
+  await salvaViaInStrade(
+    supabase,
+    stringOrNull(formData.get('indirizzo')),
+    stringOrNull(formData.get('civico')),
+    stringOrNull(formData.get('comune')),
+    stringOrNull(formData.get('frazione')),
+    stringOrNull(formData.get('cap'))
+  )
+
   revalidatePath('/notizie')
   redirect('/notizie')
 }
@@ -57,6 +107,17 @@ export async function aggiornaNotizia(id: string, formData: FormData) {
   const { error } = await supabase.from('notizie').update(update).eq('id', id)
 
   if (error) throw new Error(error.message)
+
+  // Auto-alimenta tabella strade
+  await salvaViaInStrade(
+    supabase,
+    stringOrNull(formData.get('indirizzo')),
+    stringOrNull(formData.get('civico')),
+    stringOrNull(formData.get('comune')),
+    stringOrNull(formData.get('frazione')),
+    stringOrNull(formData.get('cap'))
+  )
+
   revalidatePath('/notizie')
   revalidatePath(`/notizie/${id}`)
   redirect(`/notizie/${id}`)
