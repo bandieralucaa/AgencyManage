@@ -179,17 +179,14 @@ export default function FormImmobile({
               <ul className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
                 {suggerimenti.map((s, i) => (
                   <li
-                    key={`${s.nome}-${i}`}
+                    key={`${s.nome}-${s.frazione}-${i}`}
                     onMouseDown={(e) => {
                       e.preventDefault()
-                      selezionaVia(s.nome)
+                      selezionaVia(s)
                     }}
-                    className="px-4 py-2 hover:bg-slate-700 cursor-pointer text-white text-sm flex items-center justify-between gap-2"
+                    className="px-4 py-2 hover:bg-slate-700 cursor-pointer text-white text-sm"
                   >
-                    <span>{s.nome}</span>
-                    {s.frazione && (
-                      <span className="text-xs text-slate-500">{s.frazione}</span>
-                    )}
+                    {s.nome}
                   </li>
                 ))}
               </ul>
