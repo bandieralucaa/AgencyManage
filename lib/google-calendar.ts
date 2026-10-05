@@ -144,6 +144,7 @@ export async function getStatoCalendario(agenteId: string): Promise<StatoCalenda
   const calendarsData = await calendarsRes.json()
   const calendari = calendarsData.items || []
 
+  // Usa il range calcolato in ora italiana (Europe/Rome)
   const { inizio, fine } = getRangeOggi()
 
   const tuttiEventi: EventoCalendario[] = []
@@ -172,7 +173,6 @@ export async function getStatoCalendario(agenteId: string): Promise<StatoCalenda
       tuttoIlGiorno: !e.start.dateTime,
       luogo: e.location,
       calendario: cal.summary,
-      colore: cal.backgroundColor,
     }))
 
     tuttiEventi.push(...eventi)
