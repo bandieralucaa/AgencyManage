@@ -156,6 +156,7 @@ export default async function DashboardPage() {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
+      timeZone: 'Europe/Rome',
     })
   }
 
@@ -267,6 +268,7 @@ export default async function DashboardPage() {
                     : new Date(e.inizio).toLocaleTimeString('it-IT', {
                         hour: '2-digit',
                         minute: '2-digit',
+                        timeZone: 'Europe/Rome',
                       })}
                 </div>
                 <div className="flex-1 min-w-0">
