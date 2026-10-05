@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import InputPrezzo from './input-prezzo'
 
 type Opzione = { id: string; label: string }
 
@@ -14,16 +15,11 @@ export default function FormValutazione({
 }) {
   const supabase = createClient()
   const [clienti, setClienti] = useState<Opzione[]>([])
-  const [suggerimenti, setSuggerimenti] = useState<string[]>([])
-  const [mostraSuggerimenti, setMostraSuggerimenti] = useState(false)
+  const [immobili, setImmobili] = useState<Opzione[]>([])
 
   const [form, setForm] = useState({
+    immobile_id: valutazione?.immobile_id ?? '',
     cliente_id: valutazione?.cliente_id ?? '',
-    indirizzo: valutazione?.indirizzo ?? '',
-    civico: valutazione?.civico ?? '',
-    frazione: valutazione?.frazione ?? '',
-    comune: valutazione?.comune ?? '',
-    cap: valutazione?.cap ?? '',
     data_valutazione:
       valutazione?.data_valutazione ?? new Date().toISOString().split('T')[0],
     prezzo_valutato: valutazione?.prezzo_valutato ?? '',
@@ -40,201 +36,78 @@ export default function FormValutazione({
 
   useEffect(() => {
     async function carica() {
-      const { data } = await supabase
-        .from('clienti')
-        .select('id, nome, cognome')
-        .eq('attivo', true)
-        .order('cognome', { ascending: true })
-      if (data) {
+      const [c, i] = await Promise.all([
+        supabase
+          .from('clienti')
+          .select('id, nome, cognome')
+          .eq('attivo', true)
+          .order('cognome', { ascending: true }),
+        supabase
+          .from('immobili')
+          .select('id, indirizzo, civico, comune')
+          .eq('attivo', true)
+          .order('indirizzo', { ascending: true }),
+      ])
+      if (c.data) {
         setClienti(
-          data.map((x) => ({ id: x.id, label: `${x.cognome} ${x.nome}` }))
+          c.data.map((x) => ({ id: x.id, label: `${x.cognome} ${x.nome}` }))
+        )
+      }
+      if (i.data) {
+        setImmobili(
+          i.data.map((x) => ({
+            id: x.id,
+            label: `${x.indirizzo} ${x.civico || ''}, ${x.comune}`,
+          }))
         )
       }
     }
     carica()
   }, [supabase])
 
-  // Autocomplete via
-  useEffect(() => {
-    if (form.indirizzo.length < 2) {
-      setSuggerimenti([])
-      return
-    }
-    const timer = setTimeout(async () => {
-      const { data } = await supabase
-        .from('strade')
-        .select('via')
-        .ilike('via', `%${form.indirizzo}%`)
-        .limit(50)
-      if (data) {
-        const vieUniche = [...new Set(data.map((d) => d.via))]
-        setSuggerimenti(vieUniche.slice(0, 10))
-      }
-    }, 200)
-    return () => clearTimeout(timer)
-  }, [form.indirizzo, supabase])
-
-  // Auto-popola comune/frazione/CAP quando il form si apre in modifica
-  useEffect(() => {
-    async function autoPopola() {
-      if (!valutazione?.indirizzo) return
-      if (valutazione?.cap && valutazione?.comune && valutazione?.frazione) return
-
-      const { data } = await supabase
-        .from('strade')
-        .select('comune, frazione, cap')
-        .ilike('via', valutazione.indirizzo)
-        .limit(1)
-        .maybeSingle()
-
-      if (data) {
-        if (!form.comune) upd('comune', data.comune || '')
-        if (!form.frazione) upd('frazione', data.frazione || '')
-        if (!form.cap) upd('cap', data.cap || '')
-      }
-    }
-    autoPopola()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  async function selezionaVia(viaSelezionata: string) {
-    upd('indirizzo', viaSelezionata)
-    setMostraSuggerimenti(false)
-    const { data } = await supabase
-      .from('strade')
-      .select('comune, frazione, cap')
-      .eq('via', viaSelezionata)
-      .limit(1)
-      .maybeSingle()
-    if (data) {
-      upd('comune', data.comune || '')
-      upd('frazione', data.frazione || '')
-      upd('cap', data.cap || '')
-    }
-  }
-
   return (
     <form action={action} className="space-y-8">
-      {/* UBICAZIONE */}
+      {/* IMMOBILE E CLIENTE */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4">Ubicazione</h2>
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-          <div className="md:col-span-4 relative">
+        <h2 className="text-lg font-semibold mb-4">Immobile e cliente</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Via *
+              Immobile *
             </label>
-            <input
-              type="text"
-              name="indirizzo"
+            <select
+              name="immobile_id"
               required
-              value={form.indirizzo}
-              onChange={(e) => {
-                upd('indirizzo', e.target.value)
-                setMostraSuggerimenti(true)
-              }}
-              onFocus={() => setMostraSuggerimenti(true)}
-              onBlur={() => setTimeout(() => setMostraSuggerimenti(false), 200)}
-              autoComplete="off"
-              placeholder="Inizia a digitare..."
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {mostraSuggerimenti && suggerimenti.length > 0 && (
-              <ul className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
-                {suggerimenti.map((s) => (
-                  <li
-                    key={s}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      selezionaVia(s)
-                    }}
-                    className="px-4 py-2 hover:bg-slate-700 cursor-pointer text-white text-sm"
-                  >
-                    {s}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Civico
-            </label>
-            <input
-              type="text"
-              name="civico"
-              value={form.civico}
-              onChange={(e) => upd('civico', e.target.value)}
+              value={form.immobile_id}
+              onChange={(e) => upd('immobile_id', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            >
+              <option value="">— Seleziona immobile —</option>
+              {immobili.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.label}
+                </option>
+              ))}
+            </select>
           </div>
-
-          <div className="md:col-span-2">
+          <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Frazione
+              Cliente proprietario (opzionale)
             </label>
-            <input
-              type="text"
-              name="frazione"
-              value={form.frazione}
-              onChange={(e) => upd('frazione', e.target.value)}
+            <select
+              name="cliente_id"
+              value={form.cliente_id}
+              onChange={(e) => upd('cliente_id', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            >
+              <option value="">— Nessuno —</option>
+              {clienti.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
           </div>
-
-          <div className="md:col-span-3">
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Comune *
-            </label>
-            <input
-              type="text"
-              name="comune"
-              required
-              value={form.comune}
-              onChange={(e) => upd('comune', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="md:col-span-1">
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              CAP
-            </label>
-            <input
-              type="text"
-              name="cap"
-              maxLength={5}
-              value={form.cap}
-              onChange={(e) => upd('cap', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* CLIENTE */}
-      <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4">Cliente proprietario</h2>
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            Cliente (opzionale)
-          </label>
-          <select
-            name="cliente_id"
-            value={form.cliente_id}
-            onChange={(e) => upd('cliente_id', e.target.value)}
-            className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">— Nessuno —</option>
-            {clienti.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-slate-500 mt-1">
-            Il proprietario dell&apos;immobile che stai valutando
-          </p>
         </div>
       </section>
 
@@ -268,8 +141,7 @@ export default function FormValutazione({
             >
               <option value="da_fare">Da fare</option>
               <option value="fatta">Fatta</option>
-              <option value="seguita">Seguita</option>
-              <option value="persa">Persa</option>
+              <option value="annullata">Annullata</option>
             </select>
           </div>
           <div>
@@ -295,11 +167,10 @@ export default function FormValutazione({
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Prezzo valutato €
             </label>
-            <input
-              type="number"
+            <InputPrezzo
               name="prezzo_valutato"
               value={form.prezzo_valutato}
-              onChange={(e) => upd('prezzo_valutato', e.target.value)}
+              onChange={(v) => upd('prezzo_valutato', v)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -307,23 +178,21 @@ export default function FormValutazione({
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Prezzo richiesto €
             </label>
-            <input
-              type="number"
+            <InputPrezzo
               name="prezzo_richiesto"
               value={form.prezzo_richiesto}
-              onChange={(e) => upd('prezzo_richiesto', e.target.value)}
+              onChange={(v) => upd('prezzo_richiesto', v)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Prezzo minimo €
+              Prezzo in pubblicità €
             </label>
-            <input
-              type="number"
+            <InputPrezzo
               name="prezzo_minimo"
               value={form.prezzo_minimo}
-              onChange={(e) => upd('prezzo_minimo', e.target.value)}
+              onChange={(v) => upd('prezzo_minimo', v)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

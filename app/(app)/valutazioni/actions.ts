@@ -20,16 +20,25 @@ export async function creaValutazione(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non autenticato')
 
-  const clienteId = stringOrNull(formData.get('cliente_id'))
+  const immobileId = formData.get('immobile_id') as string
+  if (!immobileId) throw new Error('Immobile obbligatorio')
+
+  // Recupera i dati dell'immobile per copiare l'indirizzo
+  const { data: immobile } = await supabase
+    .from('immobili')
+    .select('indirizzo, civico, frazione, comune, cap')
+    .eq('id', immobileId)
+    .maybeSingle()
 
   const { error } = await supabase.from('valutazioni').insert({
-    cliente_id: clienteId,
+    immobile_id: immobileId,
+    cliente_id: stringOrNull(formData.get('cliente_id')),
     agente_id: user.id,
-    indirizzo: formData.get('indirizzo') as string,
-    civico: stringOrNull(formData.get('civico')),
-    frazione: stringOrNull(formData.get('frazione')),
-    comune: stringOrNull(formData.get('comune')),
-    cap: stringOrNull(formData.get('cap')),
+    indirizzo: immobile?.indirizzo || '',
+    civico: immobile?.civico,
+    frazione: immobile?.frazione,
+    comune: immobile?.comune,
+    cap: immobile?.cap,
     data_valutazione: formData.get('data_valutazione') as string,
     prezzo_valutato: numOrNull(formData.get('prezzo_valutato')),
     prezzo_richiesto: numOrNull(formData.get('prezzo_richiesto')),
@@ -47,17 +56,26 @@ export async function creaValutazione(formData: FormData) {
 export async function aggiornaValutazione(id: string, formData: FormData) {
   const supabase = await createClient()
 
-  const clienteId = stringOrNull(formData.get('cliente_id'))
+  const immobileId = formData.get('immobile_id') as string
+  if (!immobileId) throw new Error('Immobile obbligatorio')
+
+  // Recupera l'indirizzo aggiornato dall'immobile
+  const { data: immobile } = await supabase
+    .from('immobili')
+    .select('indirizzo, civico, frazione, comune, cap')
+    .eq('id', immobileId)
+    .maybeSingle()
 
   const { error } = await supabase
     .from('valutazioni')
     .update({
-      cliente_id: clienteId,
-      indirizzo: formData.get('indirizzo') as string,
-      civico: stringOrNull(formData.get('civico')),
-      frazione: stringOrNull(formData.get('frazione')),
-      comune: stringOrNull(formData.get('comune')),
-      cap: stringOrNull(formData.get('cap')),
+      immobile_id: immobileId,
+      cliente_id: stringOrNull(formData.get('cliente_id')),
+      indirizzo: immobile?.indirizzo || '',
+      civico: immobile?.civico,
+      frazione: immobile?.frazione,
+      comune: immobile?.comune,
+      cap: immobile?.cap,
       data_valutazione: formData.get('data_valutazione') as string,
       prezzo_valutato: numOrNull(formData.get('prezzo_valutato')),
       prezzo_richiesto: numOrNull(formData.get('prezzo_richiesto')),

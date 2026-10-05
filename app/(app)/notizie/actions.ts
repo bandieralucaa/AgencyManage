@@ -6,41 +6,7 @@ import { redirect } from 'next/navigation'
 
 function stringOrNull(v: FormDataEntryValue | null) {
   if (!v || v === '') return null
-  return (v as string).trim()
-}
-
-/**
- * Auto-alimenta la tabella `strade`: se la via+civico+comune non esiste, la aggiunge.
- */
-async function salvaViaInStrade(
-  supabase: any,
-  via: string | null,
-  civico: string | null,
-  comune: string | null,
-  frazione: string | null,
-  cap: string | null
-) {
-  if (!via || !comune) return
-
-  const { error } = await supabase
-    .from('strade')
-    .upsert(
-      {
-        via: via.trim(),
-        civico: civico?.trim() || null,
-        comune: comune.trim(),
-        frazione: frazione?.trim() || null,
-        cap: cap?.trim() || null,
-      },
-      {
-        onConflict: 'via,civico,comune',
-        ignoreDuplicates: true,
-      }
-    )
-
-  if (error) {
-    console.warn('⚠️ Errore salvataggio via in strade:', error.message)
-  }
+  return v as string
 }
 
 export async function creaNotizia(formData: FormData) {
@@ -48,34 +14,33 @@ export async function creaNotizia(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non autenticato')
 
-  const clienteId = formData.get('cliente_id') as string
+  const immobileId = stringOrNull(formData.get('immobile_id'))
+  if (!immobileId) throw new Error('Immobile obbligatorio')
+
+  // Copia indirizzo dall'immobile
+  const { data: immobile } = await supabase
+    .from('immobili')
+    .select('indirizzo, civico, frazione, comune')
+    .eq('id', immobileId)
+    .maybeSingle()
+
+  if (!immobile) throw new Error('Immobile non trovato')
 
   const { error } = await supabase.from('notizie').insert({
-    tipo_notizia: (formData.get('tipo_notizia') as string) || 'cliente_cerca',
+    tipo_notizia: formData.get('tipo_notizia') as string,
+    immobile_id: immobileId,
     agente_id: user.id,
-    cliente_id: clienteId || null,
-    indirizzo: formData.get('indirizzo') || null,
-    civico: formData.get('civico') || null,
-    frazione: formData.get('frazione') || null,
-    comune: formData.get('comune') || null,
-    cap: formData.get('cap') || null,
+    cliente_id: stringOrNull(formData.get('cliente_id')),
+    indirizzo: immobile.indirizzo,
+    civico: immobile.civico,
+    frazione: immobile.frazione,
+    comune: immobile.comune,
     tipo: formData.get('tipo') as string,
     stato: (formData.get('stato') as string) || 'aperta',
-    motivo_chiusura: formData.get('motivo_chiusura') || null,
+    motivo_chiusura: stringOrNull(formData.get('motivo_chiusura')),
   })
 
   if (error) throw new Error(error.message)
-
-  // Auto-alimenta tabella strade
-  await salvaViaInStrade(
-    supabase,
-    stringOrNull(formData.get('indirizzo')),
-    stringOrNull(formData.get('civico')),
-    stringOrNull(formData.get('comune')),
-    stringOrNull(formData.get('frazione')),
-    stringOrNull(formData.get('cap'))
-  )
-
   revalidatePath('/notizie')
   redirect('/notizie')
 }
@@ -83,23 +48,30 @@ export async function creaNotizia(formData: FormData) {
 export async function aggiornaNotizia(id: string, formData: FormData) {
   const supabase = await createClient()
 
-  const clienteId = formData.get('cliente_id') as string
   const stato = formData.get('stato') as string
+  const immobileId = stringOrNull(formData.get('immobile_id'))
+  if (!immobileId) throw new Error('Immobile obbligatorio')
+
+  // Copia indirizzo dall'immobile
+  const { data: immobile } = await supabase
+    .from('immobili')
+    .select('indirizzo, civico, frazione, comune')
+    .eq('id', immobileId)
+    .maybeSingle()
 
   const update: any = {
-    tipo_notizia: (formData.get('tipo_notizia') as string) || 'cliente_cerca',
-    cliente_id: clienteId || null,
-    indirizzo: formData.get('indirizzo') || null,
-    civico: formData.get('civico') || null,
-    frazione: formData.get('frazione') || null,
-    comune: formData.get('comune') || null,
-    cap: formData.get('cap') || null,
+    immobile_id: immobileId,
+    cliente_id: stringOrNull(formData.get('cliente_id')),
+    indirizzo: immobile?.indirizzo || null,
+    civico: immobile?.civico || null,
+    frazione: immobile?.frazione || null,
+    comune: immobile?.comune || null,
     tipo: formData.get('tipo') as string,
     stato,
   }
 
   if (stato.startsWith('chiusa_')) {
-    update.motivo_chiusura = formData.get('motivo_chiusura') || null
+    update.motivo_chiusura = stringOrNull(formData.get('motivo_chiusura'))
   } else {
     update.motivo_chiusura = null
   }
@@ -107,17 +79,6 @@ export async function aggiornaNotizia(id: string, formData: FormData) {
   const { error } = await supabase.from('notizie').update(update).eq('id', id)
 
   if (error) throw new Error(error.message)
-
-  // Auto-alimenta tabella strade
-  await salvaViaInStrade(
-    supabase,
-    stringOrNull(formData.get('indirizzo')),
-    stringOrNull(formData.get('civico')),
-    stringOrNull(formData.get('comune')),
-    stringOrNull(formData.get('frazione')),
-    stringOrNull(formData.get('cap'))
-  )
-
   revalidatePath('/notizie')
   revalidatePath(`/notizie/${id}`)
   redirect(`/notizie/${id}`)

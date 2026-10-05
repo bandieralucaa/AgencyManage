@@ -5,8 +5,8 @@ import EliminaNotiziaButton from './elimina-button'
 import SezioneAttivita from '@/components/sezione-attivita'
 import PulsanteConverti from '@/components/pulsante-converti'
 import TimelineFlusso from '@/components/timeline-flusso'
-import { notiziaToValutazione } from '@/app/(app)/flusso/actions'
 import BreadcrumbFlusso from '@/components/breadcrumb-flusso'
+import { notiziaToValutazione } from '@/app/(app)/flusso/actions'
 
 const STATI: Record<string, { label: string; colore: string }> = {
   aperta: { label: 'Aperta', colore: 'bg-blue-500/20 text-blue-400' },
@@ -35,15 +35,43 @@ export default async function NotiziaPage({
 
   const { data: notizia } = await supabase
     .from('notizie')
-    .select(`
-      *,
-      agenti (nome, cognome),
-      clienti (id, nome, cognome, telefono)
-    `)
+    .select('*')
     .eq('id', id)
     .single()
 
   if (!notizia) notFound()
+
+  // Letture separate
+  let immobile = null
+  let cliente = null
+  let agente = null
+
+  if (notizia.immobile_id) {
+    const { data } = await supabase
+      .from('immobili')
+      .select('id, indirizzo, civico, frazione, comune')
+      .eq('id', notizia.immobile_id)
+      .maybeSingle()
+    immobile = data
+  }
+
+  if (notizia.cliente_id) {
+    const { data } = await supabase
+      .from('clienti')
+      .select('id, nome, cognome, telefono')
+      .eq('id', notizia.cliente_id)
+      .maybeSingle()
+    cliente = data
+  }
+
+  if (notizia.agente_id) {
+    const { data } = await supabase
+      .from('agenti')
+      .select('nome, cognome')
+      .eq('id', notizia.agente_id)
+      .maybeSingle()
+    agente = data
+  }
 
   const { data: attivita } = await supabase
     .from('attivita')
@@ -51,14 +79,14 @@ export default async function NotiziaPage({
     .eq('notizia_id', id)
     .order('data_attivita', { ascending: false })
 
-  // Cerca la valutazione collegata (se esiste)
+  // Cerca la valutazione collegata
   const { data: valutazione } = await supabase
     .from('valutazioni')
     .select('id, data_valutazione, stato')
     .eq('notizia_id', id)
     .maybeSingle()
 
-  // Cerca l'incarico (se la valutazione è stata convertita)
+  // Cerca l'incarico
   let incarico = null
   if (valutazione) {
     const { data: inc } = await supabase
@@ -69,28 +97,24 @@ export default async function NotiziaPage({
     incarico = inc
   }
 
-  // Cerca l'immobile (se l'incarico è stato convertito)
-  let immobile = null
-  if (incarico) {
-    const { data: imm } = await supabase
-      .from('immobili')
-      .select('id, indirizzo, civico')
-      .eq('incarico_id', incarico.id)
-      .maybeSingle()
-    immobile = imm
-  }
-
-  const ag = Array.isArray(notizia.agenti) ? notizia.agenti[0] : notizia.agenti
-  const cli = Array.isArray(notizia.clienti) ? notizia.clienti[0] : notizia.clienti
   const stato = STATI[notizia.stato] || {
     label: notizia.stato,
     colore: 'bg-slate-700 text-slate-300',
   }
-  const isClienteCerca = notizia.tipo_notizia === 'cliente_cerca'
-  const isImmobileVendesi = notizia.tipo_notizia === 'immobile_vendesi'
+  const isImmobileVuoto = notizia.tipo_notizia === 'immobile_vuoto'
 
-  // Timeline
+  // Timeline (sempre mostrata, entrambi i tipi hanno immobile)
   const timeline = [
+    ...(immobile
+      ? [
+          {
+            label: 'Immobile',
+            icona: '🏠',
+            stato: 'completato' as const,
+            link: `/immobili/${immobile.id}`,
+          },
+        ]
+      : []),
     {
       label: 'Notizia',
       icona: '📰',
@@ -119,26 +143,9 @@ export default async function NotiziaPage({
         ? new Date(incarico.data_inizio).toLocaleDateString('it-IT')
         : undefined,
     },
-    {
-      label: 'Immobile in portafoglio',
-      icona: '🏠',
-      stato: immobile
-        ? ('completato' as const)
-        : incarico
-        ? ('attivo' as const)
-        : ('futuro' as const),
-      link: immobile ? `/immobili/${immobile.id}` : undefined,
-    },
   ]
 
-  // Mostra pulsante converti solo se è immobile_vendesi e non ha ancora la valutazione
-  const mostraPulsanteValutazione = isImmobileVendesi && !valutazione
-
-  // Mostra pulsante incarico se la valutazione esiste ma non l'incarico
-  const mostraPulsanteIncarico = isImmobileVendesi && valutazione && !incarico
-
-  // Mostra pulsante immobile se l'incarico esiste ma non l'immobile
-  const mostraPulsanteImmobile = isImmobileVendesi && incarico && !immobile
+  const mostraPulsanteValutazione = !valutazione
 
   return (
     <div className="p-6 lg:p-10">
@@ -147,62 +154,26 @@ export default async function NotiziaPage({
           ← Torna alle notizie
         </Link>
 
-        {/* BREADCRUMB FLUSSO */}
-        {isImmobileVendesi && (
-          <div className="mt-3">
-            <BreadcrumbFlusso
-              step={[
-                { label: 'Notizia', icona: '📰', attivo: true },
-                ...(valutazione
-                  ? [
-                      {
-                        label: 'Valutazione',
-                        icona: '📋',
-                        link: `/valutazioni/${valutazione.id}`,
-                      },
-                    ]
-                  : []),
-                ...(incarico
-                  ? [
-                      {
-                        label: 'Incarico',
-                        icona: '📝',
-                        link: `/incarichi/${incarico.id}`,
-                      },
-                    ]
-                  : []),
-                ...(immobile
-                  ? [
-                      {
-                        label: 'Immobile',
-                        icona: '🏠',
-                        link: `/immobili/${immobile.id}`,
-                      },
-                    ]
-                  : []),
-              ]}
-            />
-          </div>
-        )}
+        <div className="mt-3">
+          <BreadcrumbFlusso step={timeline} />
+        </div>
 
         <div className="flex items-start justify-between gap-4 mt-2 flex-wrap">
           <div>
             <h1 className="text-3xl font-bold">
-              {notizia.indirizzo
-                ? `${notizia.indirizzo} ${notizia.civico || ''}`
-                : isClienteCerca
-                ? 'Cliente cerca casa'
-                : 'Immobile da vendere'}
+              {immobile
+                ? `${immobile.indirizzo} ${immobile.civico || ''}`
+                : 'Notizia'}
             </h1>
             <div className="flex items-center gap-3 mt-2 text-sm text-slate-400 flex-wrap">
               <span
                 className={`text-xs px-2 py-0.5 rounded font-medium ${
-                  isClienteCerca
-                    ? 'bg-blue-500/20 text-blue-400'
+                  isImmobileVuoto
+                    ? 'bg-amber-500/20 text-amber-400'
                     : 'bg-emerald-500/20 text-emerald-400'
                 }`}
               >
-                {isClienteCerca ? '🔍 Cliente cerca casa' : '🏠 Immobile da vendere'}
+                {isImmobileVuoto ? '🏚️ Immobile vuoto' : '🏠 Immobile da vendere'}
               </span>
               <span>·</span>
               <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">
@@ -212,11 +183,11 @@ export default async function NotiziaPage({
               <span className={`text-xs px-2 py-0.5 rounded ${stato.colore}`}>
                 {stato.label}
               </span>
-              {ag && (
+              {agente && (
                 <>
                   <span>·</span>
                   <span>
-                    Registrata da {ag.nome} {ag.cognome} il{' '}
+                    Registrata da {agente.nome} {agente.cognome} il{' '}
                     {new Date(notizia.created_at).toLocaleDateString('it-IT')}
                   </span>
                 </>
@@ -232,24 +203,16 @@ export default async function NotiziaPage({
             </Link>
             <EliminaNotiziaButton
               id={id}
-              nome={
-                notizia.indirizzo
-                  ? `${notizia.indirizzo} ${notizia.civico || ''}`
-                  : 'questa notizia'
-              }
+              nome={immobile ? `${immobile.indirizzo} ${immobile.civico || ''}` : 'questa notizia'}
             />
           </div>
         </div>
       </div>
 
-      {/* TIMELINE FLUSSO (solo se è immobile da vendere) */}
-      {isImmobileVendesi && (
-        <div className="mb-6">
-          <TimelineFlusso step={timeline} />
-        </div>
-      )}
+      <div className="mb-6">
+        <TimelineFlusso step={timeline} />
+      </div>
 
-      {/* PULSANTE CONVERTI */}
       {mostraPulsanteValutazione && (
         <div className="mb-6">
           <PulsanteConverti
@@ -263,87 +226,46 @@ export default async function NotiziaPage({
         </div>
       )}
 
-      {mostraPulsanteIncarico && (
-        <div className="mb-6">
-          <div className="bg-slate-800 border border-blue-500/30 rounded-xl p-6">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <span className="text-2xl">📝</span>
-                  Crea incarico
-                </h3>
-                <p className="text-sm text-slate-400 mt-1">
-                  Il proprietario ti ha dato il mandato? Crea l&apos;incarico e collegalo alla valutazione.
-                </p>
-              </div>
-              <Link
-                href={`/valutazioni/${valutazione!.id}`}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors whitespace-nowrap"
-              >
-                Vai alla valutazione →
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {mostraPulsanteImmobile && (
-        <div className="mb-6">
-          <div className="bg-slate-800 border border-emerald-500/30 rounded-xl p-6">
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <span className="text-2xl">🏠</span>
-                  Porta in portafoglio
-                </h3>
-                <p className="text-sm text-slate-400 mt-1">
-                  L&apos;incarico è firmato! Crea l&apos;immobile e inizia a lavorarlo.
-                </p>
-              </div>
-              <Link
-                href={`/incarichi/${incarico!.id}`}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors whitespace-nowrap"
-              >
-                Vai all&apos;incarico →
-              </Link>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {notizia.indirizzo && (
+        {immobile && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h2 className="text-lg font-semibold mb-4">Indirizzo</h2>
-            <p className="text-white text-sm">
-              {notizia.indirizzo} {notizia.civico}
-              <br />
-              {notizia.frazione && `${notizia.frazione}, `}
-              {notizia.cap && `${notizia.cap} `}
-              {notizia.comune}
-            </p>
+            <h2 className="text-lg font-semibold mb-4">🏠 Immobile collegato</h2>
+            <dl className="space-y-3 text-sm">
+              <div>
+                <dt className="text-slate-400">Indirizzo</dt>
+                <dd className="text-white mt-0.5">
+                  <Link href={`/immobili/${immobile.id}`} className="text-blue-400 hover:underline">
+                    {immobile.indirizzo} {immobile.civico}
+                  </Link>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-slate-400">Comune</dt>
+                <dd className="text-white mt-0.5">
+                  {immobile.frazione && `${immobile.frazione}, `}
+                  {immobile.comune}
+                </dd>
+              </div>
+            </dl>
           </div>
         )}
 
-        {cli && (
+        {cliente && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h2 className="text-lg font-semibold mb-4">Cliente collegato</h2>
             <dl className="space-y-3 text-sm">
               <div>
                 <dt className="text-slate-400">Nome</dt>
                 <dd className="text-white mt-0.5">
-                  <Link
-                    href={`/clienti/${cli.id}`}
-                    className="text-blue-400 hover:underline"
-                  >
-                    {cli.cognome} {cli.nome}
+                  <Link href={`/clienti/${cliente.id}`} className="text-blue-400 hover:underline">
+                    {cliente.cognome} {cliente.nome}
                   </Link>
                 </dd>
               </div>
-              {cli.telefono && (
+              {cliente.telefono && (
                 <div>
                   <dt className="text-slate-400">Telefono</dt>
-                  <dd className="text-white mt-0.5">{cli.telefono}</dd>
+                  <dd className="text-white mt-0.5">{cliente.telefono}</dd>
                 </div>
               )}
             </dl>
@@ -360,7 +282,6 @@ export default async function NotiziaPage({
         )}
       </div>
 
-      {/* ATTIVITÀ */}
       <SezioneAttivita
         entita="notizia"
         entitaId={id}

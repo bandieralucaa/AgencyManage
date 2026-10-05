@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import EliminaRichiestaButton from './elimina-button'
 import SezioneAttivita from '@/components/sezione-attivita'
 
+
 const STATI: Record<string, { label: string; colore: string }> = {
   nuova: { label: 'Nuova', colore: 'bg-blue-500/20 text-blue-400' },
   in_corso: { label: 'In corso', colore: 'bg-amber-500/20 text-amber-400' },
@@ -67,6 +68,13 @@ function calcolaMatch(richiesta: any, immobile: any) {
     criteri.push({
       nome: 'Locali max',
       ok: (immobile.vani || 0) <= richiesta.locali_max,
+    })
+  }
+
+  if (richiesta.bagni_min) {
+    criteri.push({
+      nome: 'Bagni min',
+      ok: (immobile.bagni || 0) >= richiesta.bagni_min,
     })
   }
 
@@ -163,12 +171,28 @@ export default async function RichiestaPage({
     colore: 'bg-slate-700 text-slate-300',
   }
 
-  const { data: immobili } = await supabase
-    .from('immobili')
-    .select(
-      'id, indirizzo, civico, frazione, comune, tipo, categoria, metri_quadrati, vani, camere, bagni, stato, riscaldamento, prezzo, prezzo_affitto'
-    )
-    .eq('attivo', true)
+  // 1. Prendi solo gli immobili che hanno un incarico ATTIVO
+  const { data: incarichiAttivi } = await supabase
+    .from('incarichi')
+    .select('immobile_id')
+    .eq('stato', 'attivo')
+    .not('immobile_id', 'is', null)
+
+  const immobiliIds = (incarichiAttivi || [])
+    .map((i) => i.immobile_id)
+    .filter(Boolean) as string[]
+
+  // 2. Carica solo quegli immobili
+  const { data: immobili } =
+    immobiliIds.length > 0
+      ? await supabase
+          .from('immobili')
+          .select(
+            'id, indirizzo, civico, frazione, comune, tipo, categoria, metri_quadrati, vani, camere, bagni, stato, riscaldamento, prezzo, prezzo_affitto'
+          )
+          .eq('attivo', true)
+          .in('id', immobiliIds)
+      : { data: [] }
 
   const matches = (immobili || [])
     .map((imm) => ({ immobile: imm, ...calcolaMatch(richiesta, imm) }))
@@ -269,15 +293,9 @@ export default async function RichiestaPage({
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Cosa cerca</h2>
           <dl className="space-y-3 text-sm">
-            {richiesta.zona_cercata && (
+                        {richiesta.frazioni_cercate && richiesta.frazioni_cercate.length > 0 && (
               <div>
-                <dt className="text-slate-400">Zona</dt>
-                <dd className="text-white mt-0.5">{richiesta.zona_cercata}</dd>
-              </div>
-            )}
-            {richiesta.frazioni_cercate && richiesta.frazioni_cercate.length > 0 && (
-              <div>
-                <dt className="text-slate-400">Frazioni</dt>
+                <dt className="text-slate-400">Località</dt>
                 <dd className="text-white mt-0.5">{richiesta.frazioni_cercate.join(', ')}</dd>
               </div>
             )}
@@ -299,6 +317,12 @@ export default async function RichiestaPage({
               <div>
                 <dt className="text-slate-400">Superficie</dt>
                 <dd className="text-white mt-0.5">{mq}</dd>
+              </div>
+            )}
+                        {richiesta.bagni_min && (
+              <div>
+                <dt className="text-slate-400">Bagni minimi</dt>
+                <dd className="text-white mt-0.5">{richiesta.bagni_min}</dd>
               </div>
             )}
             {(richiesta.prezzo_min || richiesta.prezzo_max) && (

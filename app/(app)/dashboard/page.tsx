@@ -135,10 +135,9 @@ export default async function DashboardPage() {
   )
 
   // Compleanni (prossimi 30 giorni)
-  const { data: tuttiClienti } = await supabase
+   const { data: tuttiClienti } = await supabase
     .from('clienti')
-    .select('id, nome, cognome, data_nascita, telefono')
-    .eq('attivo', true)
+    .select('id, nome, cognome, data_nascita, telefono, attivo')
     .not('data_nascita', 'is', null)
 
   const compleanni = (tuttiClienti || [])

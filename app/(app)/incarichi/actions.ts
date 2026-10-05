@@ -25,7 +25,8 @@ export async function creaIncarico(formData: FormData) {
     data_inizio: formData.get('data_inizio') as string,
     data_scadenza: formData.get('data_scadenza') as string,
     prezzo: numOrNull(formData.get('prezzo')),
-    esclusivo: formData.get('esclusivo') === 'on',
+    prezzo_pubblicita: numOrNull(formData.get('prezzo_pubblicita')),
+    esclusivo: formData.get('esclusivo') === 'si',
     stato,
     note: formData.get('note') || null,
   }
@@ -55,7 +56,8 @@ export async function aggiornaIncarico(id: string, formData: FormData) {
     data_inizio: formData.get('data_inizio') as string,
     data_scadenza: formData.get('data_scadenza') as string,
     prezzo: numOrNull(formData.get('prezzo')),
-    esclusivo: formData.get('esclusivo') === 'on',
+    prezzo_pubblicita: numOrNull(formData.get('prezzo_pubblicita')),
+    esclusivo: formData.get('esclusivo') === 'si',
     stato,
     note: formData.get('note') || null,
   }

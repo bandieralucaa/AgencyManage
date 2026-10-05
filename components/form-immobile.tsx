@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
+type SuggerimentoVia = { nome: string; frazione: string }
+type Frazione = { id: string; nome: string; comune: string; cap: string; provincia: string }
+
 export default function FormImmobile({
   immobile,
   action,
@@ -11,14 +14,16 @@ export default function FormImmobile({
   action: (formData: FormData) => void | Promise<void>
 }) {
   const supabase = createClient()
-  const [suggerimenti, setSuggerimenti] = useState<string[]>([])
+  const [suggerimenti, setSuggerimenti] = useState<SuggerimentoVia[]>([])
   const [mostraSuggerimenti, setMostraSuggerimenti] = useState(false)
+  const [frazioni, setFrazioni] = useState<Frazione[]>([])
 
   const [form, setForm] = useState({
     tipo: immobile?.tipo ?? 'appartamento',
     categoria: immobile?.categoria ?? 'casa',
     indirizzo: immobile?.indirizzo ?? '',
     civico: immobile?.civico ?? '',
+    frazione_id: '',
     frazione: immobile?.frazione ?? '',
     comune: immobile?.comune ?? '',
     cap: immobile?.cap ?? '',
@@ -34,8 +39,6 @@ export default function FormImmobile({
     classe_energetica: immobile?.classe_energetica ?? '',
     riscaldamento: immobile?.riscaldamento ?? '',
     anno_costruzione: immobile?.anno_costruzione ?? '',
-    prezzo: immobile?.prezzo ?? '',
-    spese_condominiali: immobile?.spese_condominiali ?? '',
     descrizione: immobile?.descrizione ?? '',
     note: immobile?.note ?? '',
   })
@@ -44,62 +47,80 @@ export default function FormImmobile({
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  // Autocomplete via (mentre digiti)
+  // Carica le frazioni all'avvio
+  useEffect(() => {
+    async function caricaFrazioni() {
+      const { data } = await supabase
+        .from('frazioni')
+        .select('id, nome, comuni (nome, cap, provincia)')
+        .order('nome', { ascending: true })
+
+      if (data) {
+        const lista: Frazione[] = data.map((f: any) => {
+          const com = Array.isArray(f.comuni) ? f.comuni[0] : f.comuni
+          return {
+            id: f.id,
+            nome: f.nome,
+            comune: com?.nome || '',
+            cap: com?.cap || '',
+            provincia: com?.provincia || '',
+          }
+        })
+        setFrazioni(lista)
+      }
+    }
+    caricaFrazioni()
+  }, [supabase])
+
+  // Autocomplete via
   useEffect(() => {
     if (form.indirizzo.length < 2) {
       setSuggerimenti([])
       return
     }
     const timer = setTimeout(async () => {
-      const { data } = await supabase
-        .from('strade')
-        .select('via')
-        .ilike('via', `%${form.indirizzo}%`)
-        .limit(50)
+      let query = supabase.from('vie').select('nome, frazioni (nome)')
+
+      // Se è selezionata una frazione, filtra per quella frazione
+      if (form.frazione_id) {
+        query = query.eq('frazione_id', form.frazione_id)
+      }
+
+      const { data } = await query.ilike('nome', `%${form.indirizzo}%`).limit(50)
+
       if (data) {
-        const vieUniche = [...new Set(data.map((d) => d.via))]
-        setSuggerimenti(vieUniche.slice(0, 10))
+        const risultati: SuggerimentoVia[] = data.map((v: any) => {
+          const fraz = Array.isArray(v.frazioni) ? v.frazioni[0] : v.frazioni
+          return {
+            nome: v.nome,
+            frazione: fraz?.nome || '',
+          }
+        })
+        const unici = risultati.filter(
+          (r, i, arr) =>
+            arr.findIndex(
+              (x) => x.nome === r.nome && x.frazione === r.frazione
+            ) === i
+        )
+        setSuggerimenti(unici.slice(0, 10))
       }
     }, 200)
     return () => clearTimeout(timer)
-  }, [form.indirizzo, supabase])
+  }, [form.indirizzo, form.frazione_id, supabase])
 
-  // Auto-popola comune/frazione/CAP quando il form si apre in modifica
-  useEffect(() => {
-    async function autoPopola() {
-      if (!immobile?.indirizzo) return
-      if (immobile?.cap && immobile?.comune && immobile?.frazione) return
-
-      const { data } = await supabase
-        .from('strade')
-        .select('comune, frazione, cap')
-        .ilike('via', immobile.indirizzo)
-        .limit(1)
-        .maybeSingle()
-
-      if (data) {
-        if (!form.comune) upd('comune', data.comune || '')
-        if (!form.frazione) upd('frazione', data.frazione || '')
-        if (!form.cap) upd('cap', data.cap || '')
-      }
-    }
-    autoPopola()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  async function selezionaVia(viaSelezionata: string) {
-    upd('indirizzo', viaSelezionata)
+  function selezionaVia(nome: string) {
+    upd('indirizzo', nome)
     setMostraSuggerimenti(false)
-    const { data } = await supabase
-      .from('strade')
-      .select('comune, frazione, cap')
-      .eq('via', viaSelezionata)
-      .limit(1)
-      .maybeSingle()
-    if (data) {
-      upd('comune', data.comune || '')
-      upd('frazione', data.frazione || '')
-      upd('cap', data.cap || '')
+  }
+
+  function selezionaFrazione(frazioneId: string) {
+    upd('frazione_id', frazioneId)
+    const fraz = frazioni.find((f) => f.id === frazioneId)
+    if (fraz) {
+      upd('frazione', fraz.nome)
+      upd('comune', fraz.comune)
+      upd('cap', fraz.cap)
+      upd('provincia', fraz.provincia)
     }
   }
 
@@ -136,6 +157,7 @@ export default function FormImmobile({
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">Ubicazione</h2>
         <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+          {/* VIA */}
           <div className="md:col-span-4 relative">
             <label className="block text-sm font-medium text-slate-300 mb-2">Via *</label>
             <input
@@ -155,22 +177,29 @@ export default function FormImmobile({
             />
             {mostraSuggerimenti && suggerimenti.length > 0 && (
               <ul className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
-                {suggerimenti.map((s) => (
+                {suggerimenti.map((s, i) => (
                   <li
-                    key={s}
+                    key={`${s.nome}-${i}`}
                     onMouseDown={(e) => {
                       e.preventDefault()
-                      selezionaVia(s)
+                      selezionaVia(s.nome)
                     }}
-                    className="px-4 py-2 hover:bg-slate-700 cursor-pointer text-white text-sm"
+                    className="px-4 py-2 hover:bg-slate-700 cursor-pointer text-white text-sm flex items-center justify-between gap-2"
                   >
-                    {s}
+                    <span>{s.nome}</span>
+                    {s.frazione && (
+                      <span className="text-xs text-slate-500">{s.frazione}</span>
+                    )}
                   </li>
                 ))}
               </ul>
             )}
+            <p className="text-xs text-slate-500 mt-1">
+              Se non è in elenco, verrà aggiunta automaticamente
+            </p>
           </div>
 
+          {/* CIVICO */}
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-300 mb-2">Civico</label>
             <input type="text" name="civico" value={form.civico}
@@ -178,34 +207,62 @@ export default function FormImmobile({
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-300 mb-2">Frazione</label>
-            <input type="text" name="frazione" value={form.frazione}
-              onChange={(e) => upd('frazione', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          {/* FRAZIONE (select) */}
+          <div className="md:col-span-3">
+            <label className="block text-sm font-medium text-slate-300 mb-2">Frazione *</label>
+            <select
+              name="frazione_id"
+              required
+              value={form.frazione_id}
+              onChange={(e) => selezionaFrazione(e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">— Seleziona frazione —</option>
+              {frazioni.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.nome} ({f.comune})
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-500 mt-1">
+              Compila automaticamente comune, CAP e provincia
+            </p>
           </div>
 
+          {/* FRAZIONE (hidden - valore salvato nel DB) */}
+          <input type="hidden" name="frazione" value={form.frazione} />
+
+          {/* COMUNE (auto) */}
           <div className="md:col-span-3">
-            <label className="block text-sm font-medium text-slate-300 mb-2">Comune *</label>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Comune * <span className="text-slate-500 text-xs">(auto)</span>
+            </label>
             <input type="text" name="comune" required value={form.comune}
               onChange={(e) => upd('comune', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
-          <div className="md:col-span-1">
-            <label className="block text-sm font-medium text-slate-300 mb-2">CAP</label>
+          {/* CAP (auto) */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              CAP <span className="text-slate-500 text-xs">(auto)</span>
+            </label>
             <input type="text" name="cap" maxLength={5} value={form.cap}
               onChange={(e) => upd('cap', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-300 mb-2">Provincia</label>
+          {/* PROVINCIA (auto) */}
+          <div className="md:col-span-1">
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Prov. <span className="text-slate-500 text-xs">(auto)</span>
+            </label>
             <input type="text" name="provincia" maxLength={2} value={form.provincia}
               onChange={(e) => upd('provincia', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 uppercase" />
           </div>
 
+          {/* PIANO */}
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-300 mb-2">Piano</label>
             <input type="text" name="piano" value={form.piano}
@@ -228,7 +285,7 @@ export default function FormImmobile({
           </div>
         </div>
       </section>
-
+  
       {/* CARATTERISTICHE */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">Caratteristiche</h2>
@@ -278,37 +335,18 @@ export default function FormImmobile({
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Riscaldamento</label>
-            <input type="text" name="riscaldamento" value={form.riscaldamento}
+            <select name="riscaldamento" value={form.riscaldamento}
               onChange={(e) => upd('riscaldamento', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+              <option value="">—</option>
+              <option value="autonomo">Autonomo</option>
+              <option value="centralizzato">Centralizzato</option>
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Anno</label>
             <input type="number" name="anno_costruzione" value={form.anno_costruzione}
               onChange={(e) => upd('anno_costruzione', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-        </div>
-      </section>
-
-      {/* PREZZI */}
-      <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4">Prezzi</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Prezzo di vendita €
-            </label>
-            <input type="number" name="prezzo" value={form.prezzo}
-              onChange={(e) => upd('prezzo', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Spese condominiali €/mese <span className="text-slate-500 text-xs">(opzionale)</span>
-            </label>
-            <input type="number" name="spese_condominiali" value={form.spese_condominiali}
-              onChange={(e) => upd('spese_condominiali', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>

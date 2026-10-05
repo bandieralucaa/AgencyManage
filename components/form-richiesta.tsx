@@ -2,24 +2,51 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import InputPrezzo from './input-prezzo'
 
 type Cliente = { id: string; nome: string; cognome: string }
 
 const TIPOLOGIE_DISPONIBILI = [
-  'appartamento', 'villa', 'villetta', 'rustico', 'terreno',
-  'ufficio', 'negozio', 'magazzino', 'garage', 'box', 'altro',
+  'appartamento',
+  'villa',
+  'villetta',
+  'rustico',
+  'terreno',
+  'ufficio',
+  'negozio',
+  'magazzino',
+  'garage',
+  'box',
+  'altro',
 ]
 
 const TIPOLOGIE_LABEL: Record<string, string> = {
-  appartamento: 'Appartamento', villa: 'Villa', villetta: 'Villetta',
-  rustico: 'Rustico', terreno: 'Terreno', ufficio: 'Ufficio',
-  negozio: 'Negozio', magazzino: 'Magazzino', garage: 'Garage',
-  box: 'Box', altro: 'Altro',
+  appartamento: 'Appartamento',
+  villa: 'Villa',
+  villetta: 'Villetta',
+  rustico: 'Rustico',
+  terreno: 'Terreno',
+  ufficio: 'Ufficio',
+  negozio: 'Negozio',
+  magazzino: 'Magazzino',
+  garage: 'Garage',
+  box: 'Box',
+  altro: 'Altro',
 }
 
+const FRAZIONI_DISPONIBILI = ['Altedo', 'Malalbergo', 'Pegola']
+
 const ACCESSORI_DISPONIBILI = [
-  'Box', 'Cantina', 'Soffitta', 'Rustico', 'Taverna',
-  'Giardino', 'Terrazzo', 'Ascensore', 'Balcone', 'Piscina',
+  'Box',
+  'Cantina',
+  'Soffitta',
+  'Rustico',
+  'Taverna',
+  'Giardino',
+  'Terrazzo',
+  'Ascensore',
+  'Balcone',
+  'Piscina',
 ]
 
 const STATI_IMMOBILE = [
@@ -39,7 +66,6 @@ export default function FormRichiesta({
 }) {
   const supabase = createClient()
   const [clienti, setClienti] = useState<Cliente[]>([])
-  const [frazioniDisponibili, setFrazioniDisponibili] = useState<string[]>([])
 
   const [suggerimentiFrazioni, setSuggerimentiFrazioni] = useState<string[]>([])
   const [mostraSuggerimentiFrazioni, setMostraSuggerimentiFrazioni] = useState(false)
@@ -52,15 +78,13 @@ export default function FormRichiesta({
     cerca: richiesta?.cerca ?? 'vendita',
     stato: richiesta?.stato ?? 'nuova',
     motivo_chiusura: richiesta?.motivo_chiusura ?? '',
-    zona_cercata: richiesta?.zona_cercata ?? '',
     frazioni_cercate: (richiesta?.frazioni_cercate ?? []).join(', '),
-    comune: richiesta?.comuni_cercati?.[0] ?? '',
-    cap: richiesta?.cap_cercato ?? '',
     tipologia: (richiesta?.tipologia ?? []).join(', '),
     locali_min: richiesta?.locali_min ?? '',
     locali_max: richiesta?.locali_max ?? '',
     mq_min: richiesta?.mq_min ?? '',
     mq_max: richiesta?.mq_max ?? '',
+    bagni_min: richiesta?.bagni_min ?? '',
     stato_immobile: richiesta?.stato_immobile ?? '',
     tipo_stabile: richiesta?.tipo_stabile ?? '',
     accessori: richiesta?.accessori ?? [],
@@ -88,42 +112,15 @@ export default function FormRichiesta({
 
   useEffect(() => {
     async function carica() {
-      const { data: clientiData } = await supabase
+      const { data } = await supabase
         .from('clienti')
         .select('id, nome, cognome')
         .eq('attivo', true)
         .order('cognome', { ascending: true })
-      if (clientiData) setClienti(clientiData)
-
-      const { data: frazioniData } = await supabase
-        .from('frazioni_uniche')
-        .select('frazione')
-      if (frazioniData) {
-        setFrazioniDisponibili(frazioniData.map((s) => s.frazione))
-      }
+      if (data) setClienti(data)
     }
     carica()
   }, [supabase])
-
-  async function aggiornaComuneCap(frazioniStr: string) {
-    const parti = frazioniStr.split(',').map((f: string) => f.trim()).filter(Boolean)
-    if (parti.length === 0) {
-      upd('comune', '')
-      upd('cap', '')
-      return
-    }
-    const primaFrazione = parti[0]
-    const { data } = await supabase
-      .from('strade')
-      .select('comune, cap')
-      .eq('frazione', primaFrazione)
-      .limit(1)
-      .maybeSingle()
-    if (data) {
-      upd('comune', data.comune || '')
-      upd('cap', data.cap || '')
-    }
-  }
 
   function handleFrazioniChange(valore: string) {
     upd('frazioni_cercate', valore)
@@ -138,24 +135,22 @@ export default function FormRichiesta({
       .slice(0, -1)
       .map((p: string) => p.trim().toLowerCase())
       .filter(Boolean)
-    const filtrati = frazioniDisponibili.filter(
+    const filtrati = FRAZIONI_DISPONIBILI.filter(
       (f) =>
         f.toLowerCase().startsWith(ultima) &&
         !giaInseriti.includes(f.toLowerCase())
     )
-    setSuggerimentiFrazioni(filtrati.slice(0, 10))
+    setSuggerimentiFrazioni(filtrati)
     setMostraSuggerimentiFrazioni(true)
   }
 
-  async function selezionaFrazione(frazione: string) {
+  function selezionaFrazione(frazione: string) {
     const parti = form.frazioni_cercate.split(',')
     parti[parti.length - 1] = ` ${frazione}`
     const nuovo = parti.join(',').replace(/^\s*,/, '')
-    const finale = nuovo + ', '
-    upd('frazioni_cercate', finale)
+    upd('frazioni_cercate', nuovo + ', ')
     setSuggerimentiFrazioni([])
     setMostraSuggerimentiFrazioni(false)
-    await aggiornaComuneCap(finale)
   }
 
   function handleTipologiaChange(valore: string) {
@@ -261,25 +256,13 @@ export default function FormRichiesta({
         )}
       </section>
 
-      {/* ZONA */}
+      {/* ZONA RICHIESTA */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">Zona richiesta</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-300 mb-2">Zona cercata</label>
-            <input
-              type="text"
-              name="zona_cercata"
-              value={form.zona_cercata}
-              onChange={(e) => upd('zona_cercata', e.target.value)}
-              placeholder="Es. Centro storico, periferia nord..."
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
           <div className="relative">
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Frazioni <span className="text-slate-500 text-xs">(separate da virgola)</span>
+              Località <span className="text-slate-500 text-xs">(Altedo, Malalbergo, Pegola)</span>
             </label>
             <input
               type="text"
@@ -293,7 +276,7 @@ export default function FormRichiesta({
               }}
               onBlur={() => setTimeout(() => setMostraSuggerimentiFrazioni(false), 200)}
               autoComplete="off"
-              placeholder="Es. Malalbergo, Boschi, Saletto..."
+              placeholder="Es. Altedo, Pegola"
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {mostraSuggerimentiFrazioni && suggerimentiFrazioni.length > 0 && (
@@ -312,20 +295,6 @@ export default function FormRichiesta({
                 ))}
               </ul>
             )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Comune <span className="text-slate-500 text-xs">(auto dalla frazione)</span>
-            </label>
-            <input
-              type="text"
-              name="comune"
-              value={form.comune}
-              onChange={(e) => upd('comune', e.target.value)}
-              placeholder="Auto-compilato"
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
           </div>
 
           <div>
@@ -364,28 +333,13 @@ export default function FormRichiesta({
               )}
             </div>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              CAP <span className="text-slate-500 text-xs">(auto dalla frazione)</span>
-            </label>
-            <input
-              type="text"
-              name="cap_cercato"
-              maxLength={5}
-              value={form.cap}
-              onChange={(e) => upd('cap', e.target.value)}
-              placeholder="Auto-compilato"
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
         </div>
       </section>
 
       {/* DIMENSIONI */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">Dimensioni</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">N. locali min</label>
             <input type="number" name="locali_min" value={form.locali_min}
@@ -408,6 +362,12 @@ export default function FormRichiesta({
             <label className="block text-sm font-medium text-slate-300 mb-2">Mq max</label>
             <input type="number" name="mq_max" value={form.mq_max}
               onChange={(e) => upd('mq_max', e.target.value)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">Bagni min</label>
+            <input type="number" name="bagni_min" value={form.bagni_min}
+              onChange={(e) => upd('bagni_min', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
         </div>
@@ -436,6 +396,7 @@ export default function FormRichiesta({
               <option value="">Indifferente</option>
               <option value="indipendente">Indipendente</option>
               <option value="condominio">Condominio</option>
+              <option value="piccoli_contesti">Piccoli contesti</option>
             </select>
           </div>
           <div>
@@ -451,7 +412,7 @@ export default function FormRichiesta({
         </div>
       </section>
 
-      {/* ACCESSORI */}
+      {/* ACCESSORI E PERTINENZE */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">Accessori e pertinenze</h2>
         <input type="hidden" name="accessori" value={form.accessori.join(',')} />
@@ -483,15 +444,21 @@ export default function FormRichiesta({
         <div className="grid grid-cols-2 gap-4 max-w-md">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Prezzo min €</label>
-            <input type="number" name="prezzo_min" value={form.prezzo_min}
-              onChange={(e) => upd('prezzo_min', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <InputPrezzo
+              name="prezzo_min"
+              value={form.prezzo_min}
+              onChange={(v) => upd('prezzo_min', v)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Prezzo max €</label>
-            <input type="number" name="prezzo_max" value={form.prezzo_max}
-              onChange={(e) => upd('prezzo_max', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <InputPrezzo
+              name="prezzo_max"
+              value={form.prezzo_max}
+              onChange={(v) => upd('prezzo_max', v)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
           </div>
         </div>
       </section>

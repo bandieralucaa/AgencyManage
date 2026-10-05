@@ -28,16 +28,14 @@ export default async function RichiestePage({
   let query = supabase
     .from('richieste')
     .select(`
-      id, cerca, stato, zona_cercata, comuni_cercati, frazioni_cercate,
+      id, cerca, stato, frazioni_cercate,
       locali_min, locali_max, mq_min, mq_max,
       prezzo_min, prezzo_max, data_inserimento,
       clienti (id, nome, cognome, telefono)
     `)
     .order('data_inserimento', { ascending: false })
 
-  if (params.q) {
-    query = query.or(`zona_cercata.ilike.%${params.q}%`)
-  }
+ 
   if (params.cerca) query = query.eq('cerca', params.cerca)
   if (params.stato) query = query.eq('stato', params.stato)
   if (params.frazione) query = query.contains('frazioni_cercate', [params.frazione])
@@ -134,14 +132,12 @@ export default async function RichiestePage({
                       <div className="text-sm text-slate-300">
                         {CERCA_LABEL[r.cerca] || r.cerca || '—'}
                       </div>
-                        {r.zona_cercata && (
-                        <div className="text-xs text-slate-400 mt-0.5">{r.zona_cercata}</div>
-                      )}
-                      {r.frazioni_cercate && r.frazioni_cercate.length > 0 && (
+                        {r.frazioni_cercate && r.frazioni_cercate.length > 0 && (
                         <div className="text-xs text-slate-500 mt-0.5">
-                          {r.frazioni_cercate.join(', ')}
+                          📍 {r.frazioni_cercate.join(', ')}
                         </div>
                       )}
+                    
                       <div className="text-xs text-slate-400 mt-1 flex gap-3 flex-wrap">
                         {locali && <span>{locali}</span>}
                         {mq && <span>{mq}</span>}

@@ -10,51 +10,33 @@ function numOrNull(v: FormDataEntryValue | null) {
   return isNaN(n) ? null : n
 }
 
-function stringOrNull(v: FormDataEntryValue | null) {
-  if (!v || v === '') return null
-  return (v as string).trim()
-}
-
 function categoriaDaTipo(tipo: string): string {
   const tipiCasa = ['appartamento', 'villa', 'villetta', 'rustico']
   return tipiCasa.includes(tipo) ? 'casa' : 'non_casa'
 }
 
 /**
- * Auto-alimenta la tabella `strade`: se la via+civico+comune non esiste, la aggiunge.
+ * Se la via non esiste in `vie` per quella frazione, la aggiunge.
  */
-async function salvaViaInStrade(
+async function salvaViaSeNonEsiste(
   supabase: any,
-  via: string | null,
-  civico: string | null,
-  comune: string | null,
-  frazione: string | null,
-  cap: string | null
+  nomeVia: string,
+  frazioneId: string
 ) {
-  if (!via || !comune) return
+  if (!nomeVia || !frazioneId) return
 
-  console.log('🔵 Tentativo salvataggio via in strade:', { via, civico, comune, frazione, cap })
+  const { data: esistente } = await supabase
+    .from('vie')
+    .select('id')
+    .eq('nome', nomeVia.trim())
+    .eq('frazione_id', frazioneId)
+    .maybeSingle()
 
-  const { error } = await supabase
-    .from('strade')
-    .upsert(
-      {
-        via: via.trim(),
-        civico: civico?.trim() || null,
-        comune: comune.trim(),
-        frazione: frazione?.trim() || null,
-        cap: cap?.trim() || null,
-      },
-      {
-        onConflict: 'via,civico,comune',
-        ignoreDuplicates: true,
-      }
-    )
-
-  if (error) {
-    console.error('🔴 Errore salvataggio via in strade:', error.message)
-  } else {
-    console.log('✅ Via salvata o già esistente')
+  if (!esistente) {
+    await supabase.from('vie').insert({
+      nome: nomeVia.trim(),
+      frazione_id: frazioneId,
+    })
   }
 }
 
@@ -64,11 +46,18 @@ export async function creaImmobile(formData: FormData) {
   if (!user) throw new Error('Non autenticato')
 
   const tipo = formData.get('tipo') as string
+  const indirizzo = formData.get('indirizzo') as string
+  const frazioneId = formData.get('frazione_id') as string
+
+  // Aggiungi la via se non esiste
+  if (indirizzo && frazioneId) {
+    await salvaViaSeNonEsiste(supabase, indirizzo, frazioneId)
+  }
 
   const { error } = await supabase.from('immobili').insert({
     tipo,
     categoria: categoriaDaTipo(tipo),
-    indirizzo: formData.get('indirizzo') as string,
+    indirizzo,
     civico: formData.get('civico') || null,
     frazione: formData.get('frazione') || null,
     comune: formData.get('comune') as string,
@@ -85,24 +74,12 @@ export async function creaImmobile(formData: FormData) {
     classe_energetica: formData.get('classe_energetica') || null,
     riscaldamento: formData.get('riscaldamento') || null,
     anno_costruzione: numOrNull(formData.get('anno_costruzione')),
-    prezzo: numOrNull(formData.get('prezzo')),
-    spese_condominiali: numOrNull(formData.get('spese_condominiali')),
     descrizione: formData.get('descrizione') || null,
     note: formData.get('note') || null,
     agente_id: user.id,
   })
 
   if (error) throw new Error(error.message)
-
-  await salvaViaInStrade(
-    supabase,
-    stringOrNull(formData.get('indirizzo')),
-    stringOrNull(formData.get('civico')),
-    stringOrNull(formData.get('comune')),
-    stringOrNull(formData.get('frazione')),
-    stringOrNull(formData.get('cap'))
-  )
-
   revalidatePath('/immobili')
   redirect('/immobili')
 }
@@ -111,13 +88,20 @@ export async function aggiornaImmobile(id: string, formData: FormData) {
   const supabase = await createClient()
 
   const tipo = formData.get('tipo') as string
+  const indirizzo = formData.get('indirizzo') as string
+  const frazioneId = formData.get('frazione_id') as string
+
+  // Aggiungi la via se non esiste
+  if (indirizzo && frazioneId) {
+    await salvaViaSeNonEsiste(supabase, indirizzo, frazioneId)
+  }
 
   const { error } = await supabase
     .from('immobili')
     .update({
       tipo,
       categoria: categoriaDaTipo(tipo),
-      indirizzo: formData.get('indirizzo') as string,
+      indirizzo,
       civico: formData.get('civico') || null,
       frazione: formData.get('frazione') || null,
       comune: formData.get('comune') as string,
@@ -134,24 +118,12 @@ export async function aggiornaImmobile(id: string, formData: FormData) {
       classe_energetica: formData.get('classe_energetica') || null,
       riscaldamento: formData.get('riscaldamento') || null,
       anno_costruzione: numOrNull(formData.get('anno_costruzione')),
-      prezzo: numOrNull(formData.get('prezzo')),
-      spese_condominiali: numOrNull(formData.get('spese_condominiali')),
       descrizione: formData.get('descrizione') || null,
       note: formData.get('note') || null,
     })
     .eq('id', id)
 
   if (error) throw new Error(error.message)
-
-  await salvaViaInStrade(
-    supabase,
-    stringOrNull(formData.get('indirizzo')),
-    stringOrNull(formData.get('civico')),
-    stringOrNull(formData.get('comune')),
-    stringOrNull(formData.get('frazione')),
-    stringOrNull(formData.get('cap'))
-  )
-
   revalidatePath('/immobili')
   revalidatePath(`/immobili/${id}`)
   redirect(`/immobili/${id}`)

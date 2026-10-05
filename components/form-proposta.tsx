@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import InputPrezzo from './input-prezzo'
 
 type Opzione = { id: string; label: string }
 
@@ -189,11 +190,10 @@ export default function FormProposta({
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Importo proposto €
             </label>
-            <input
-              type="number"
+            <InputPrezzo
               name="importo_proposto"
               value={form.importo_proposto}
-              onChange={(e) => upd('importo_proposto', e.target.value)}
+              onChange={(v) => upd('importo_proposto', v)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

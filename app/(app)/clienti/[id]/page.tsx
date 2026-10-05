@@ -91,6 +91,7 @@ export default async function ClientePage({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* CONTATTI */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Contatti</h2>
           <dl className="space-y-3 text-sm">
@@ -98,22 +99,26 @@ export default async function ClientePage({
               <dt className="text-slate-400">Telefono</dt>
               <dd className="text-white mt-0.5">{cliente.telefono || '—'}</dd>
             </div>
+            {cliente.telefono2 && (
+              <div>
+                <dt className="text-slate-400">Secondo telefono</dt>
+                <dd className="text-white mt-0.5">{cliente.telefono2}</dd>
+              </div>
+            )}
             <div>
               <dt className="text-slate-400">Email</dt>
               <dd className="text-white mt-0.5">{cliente.email || '—'}</dd>
             </div>
-            <div>
-              <dt className="text-slate-400">PEC</dt>
-              <dd className="text-white mt-0.5">{cliente.pec || '—'}</dd>
-            </div>
           </dl>
         </div>
 
+        {/* INDIRIZZO */}
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Indirizzo</h2>
           <p className="text-white">
             {cliente.indirizzo || '—'} {cliente.civico}
             <br />
+            {cliente.frazione && `${cliente.frazione}, `}
             {cliente.cap} {cliente.comune}{' '}
             {cliente.provincia && `(${cliente.provincia})`}
           </p>

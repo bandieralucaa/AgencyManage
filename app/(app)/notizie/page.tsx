@@ -29,11 +29,7 @@ export default async function NotiziePage({
 
   let query = supabase
     .from('notizie')
-    .select(`
-      id, tipo_notizia, tipo, stato, indirizzo, civico, frazione, comune, created_at,
-      agenti (nome, cognome),
-      clienti (id, nome, cognome)
-    `)
+    .select('id, tipo_notizia, tipo, stato, immobile_id, indirizzo, civico, frazione, comune, created_at, cliente_id, agente_id')
     .order('created_at', { ascending: false })
 
   if (params.q) {
@@ -44,15 +40,21 @@ export default async function NotiziePage({
 
   const { data: notizie } = await query
 
-  // Recupera gli ID delle notizie che hanno una valutazione collegata
-  const { data: valutazioniCollegate } = await supabase
-    .from('valutazioni')
-    .select('notizia_id')
-    .not('notizia_id', 'is', null)
+  // Recupera agenti e clienti separatamente
+  const agenteIds = [...new Set((notizie || []).map((n) => n.agente_id).filter(Boolean))]
+  const clienteIds = [...new Set((notizie || []).map((n) => n.cliente_id).filter(Boolean))]
 
-  const notizieConValutazione = new Set(
-    (valutazioniCollegate || []).map((v) => v.notizia_id)
-  )
+  const [agentiRes, clientiRes] = await Promise.all([
+    agenteIds.length > 0
+      ? supabase.from('agenti').select('id, nome, cognome').in('id', agenteIds)
+      : Promise.resolve({ data: [] }),
+    clienteIds.length > 0
+      ? supabase.from('clienti').select('id, nome, cognome').in('id', clienteIds)
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const agentiMap = new Map((agentiRes.data || []).map((a) => [a.id, a]))
+  const clientiMap = new Map((clientiRes.data || []).map((c) => [c.id, c]))
 
   function formatData(data: string) {
     return new Date(data).toLocaleDateString('it-IT', {
@@ -94,14 +96,14 @@ export default async function NotiziePage({
             </thead>
             <tbody>
               {notizie.map((n: any) => {
-                const ag = Array.isArray(n.agenti) ? n.agenti[0] : n.agenti
-                const cli = Array.isArray(n.clienti) ? n.clienti[0] : n.clienti
+                const ag = agentiMap.get(n.agente_id)
+                const cli = clientiMap.get(n.cliente_id)
                 const stato = STATI[n.stato] || {
                   label: n.stato,
                   colore: 'bg-slate-700 text-slate-300',
                 }
-                const isClienteCerca = n.tipo_notizia === 'cliente_cerca'
-                const haValutazione = notizieConValutazione.has(n.id)
+
+                                const isImmobileVuoto = n.tipo_notizia === 'immobile_vuoto'
 
                 return (
                   <tr
@@ -123,22 +125,18 @@ export default async function NotiziePage({
                       <div className="flex items-center gap-2 flex-wrap mb-1">
                         <span
                           className={`text-xs px-2 py-0.5 rounded font-medium ${
-                            isClienteCerca
-                              ? 'bg-blue-500/20 text-blue-400'
+                            isImmobileVuoto
+                              ? 'bg-amber-500/20 text-amber-400'
                               : 'bg-emerald-500/20 text-emerald-400'
                           }`}
                         >
-                          {isClienteCerca ? '🔍 Cliente cerca casa' : '🏠 Immobile da vendere'}
+                          {isImmobileVuoto ? '🏚️ Immobile vuoto' : '🏠 Immobile da vendere'}
                         </span>
                         <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">
                           {TIPI[n.tipo] || n.tipo || '—'}
                         </span>
-                        {haValutazione && (
-                          <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-medium">
-                            ✅ Valutata
-                          </span>
-                        )}
                       </div>
+                
                       {n.indirizzo && (
                         <div className="text-sm text-white">
                           {n.indirizzo} {n.civico}
@@ -175,22 +173,7 @@ export default async function NotiziePage({
                       <Link
                         href={`/notizie/${n.id}`}
                         className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-400 hover:bg-slate-700 px-2.5 py-1.5 rounded transition-colors"
-                        title="Apri dettaglio"
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="14"
-                          height="14"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
                         Dettagli
                       </Link>
                     </td>

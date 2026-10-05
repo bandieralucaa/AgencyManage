@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import InputPrezzo from './input-prezzo'
 
 type Opzione = { id: string; label: string }
 
@@ -29,6 +30,7 @@ export default function FormIncarico({
     data_inizio: incarico?.data_inizio ?? new Date().toISOString().split('T')[0],
     data_scadenza: incarico?.data_scadenza ?? '',
     prezzo: incarico?.prezzo ?? '',
+    prezzo_pubblicita: incarico?.prezzo_pubblicita ?? '',
     esclusivo: incarico?.esclusivo ?? false,
     stato: incarico?.stato ?? 'attivo',
     data_chiusura: incarico?.data_chiusura ?? '',
@@ -125,25 +127,37 @@ export default function FormIncarico({
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Prezzo richiesto €
             </label>
-            <input
-              type="number"
+            <InputPrezzo
               name="prezzo"
               value={form.prezzo}
-              onChange={(e) => upd('prezzo', e.target.value)}
+              onChange={(v) => upd('prezzo', v)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div className="flex items-end">
-            <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none pb-2.5">
-              <input
-                type="checkbox"
-                name="esclusivo"
-                checked={form.esclusivo}
-                onChange={(e) => upd('esclusivo', e.target.checked)}
-                className="w-4 h-4 accent-blue-600"
-              />
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Prezzo in pubblicità €
+            </label>
+            <InputPrezzo
+              name="prezzo_pubblicita"
+              value={form.prezzo_pubblicita}
+              onChange={(v) => upd('prezzo_pubblicita', v)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
               Incarico in esclusiva
             </label>
+            <select
+              name="esclusivo"
+              value={form.esclusivo ? 'si' : 'no'}
+              onChange={(e) => upd('esclusivo', e.target.value === 'si')}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="no">No</option>
+              <option value="si">Sì</option>
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">

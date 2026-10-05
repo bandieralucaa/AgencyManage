@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-type Cliente = { id: string; nome: string; cognome: string }
+type Opzione = { id: string; label: string }
 
 export default function FormNotizia({
   notizia,
@@ -13,19 +13,14 @@ export default function FormNotizia({
   action: (formData: FormData) => void | Promise<void>
 }) {
   const supabase = createClient()
-  const [clienti, setClienti] = useState<Cliente[]>([])
-  const [suggerimentiVie, setSuggerimentiVie] = useState<string[]>([])
-  const [mostraSuggerimentiVie, setMostraSuggerimentiVie] = useState(false)
+  const [clienti, setClienti] = useState<Opzione[]>([])
+  const [immobili, setImmobili] = useState<Opzione[]>([])
 
   const [form, setForm] = useState({
-    tipo_notizia: notizia?.tipo_notizia ?? 'cliente_cerca',
+    tipo_notizia: notizia?.tipo_notizia ?? 'immobile_vuoto',
+    immobile_id: notizia?.immobile_id ?? '',
     cliente_id: notizia?.cliente_id ?? '',
     tipo: notizia?.tipo ?? 'agenzia',
-    indirizzo: notizia?.indirizzo ?? '',
-    civico: notizia?.civico ?? '',
-    frazione: notizia?.frazione ?? '',
-    comune: notizia?.comune ?? '',
-    cap: notizia?.cap ?? '',
     stato: notizia?.stato ?? 'aperta',
     motivo_chiusura: notizia?.motivo_chiusura ?? '',
   })
@@ -36,54 +31,37 @@ export default function FormNotizia({
 
   useEffect(() => {
     async function carica() {
-      const { data } = await supabase
-        .from('clienti')
-        .select('id, nome, cognome')
-        .eq('attivo', true)
-        .order('cognome', { ascending: true })
-      if (data) setClienti(data)
+      const [c, i] = await Promise.all([
+        supabase
+          .from('clienti')
+          .select('id, nome, cognome')
+          .eq('attivo', true)
+          .order('cognome', { ascending: true }),
+        supabase
+          .from('immobili')
+          .select('id, indirizzo, civico, comune')
+          .eq('attivo', true)
+          .order('indirizzo', { ascending: true }),
+      ])
+      if (c.data) {
+        setClienti(
+          c.data.map((x) => ({ id: x.id, label: `${x.cognome} ${x.nome}` }))
+        )
+      }
+      if (i.data) {
+        setImmobili(
+          i.data.map((x) => ({
+            id: x.id,
+            label: `${x.indirizzo} ${x.civico || ''}, ${x.comune}`,
+          }))
+        )
+      }
     }
     carica()
   }, [supabase])
 
-  // Autocomplete via
-  useEffect(() => {
-    if (form.indirizzo.length < 2) {
-      setSuggerimentiVie([])
-      return
-    }
-    const timer = setTimeout(async () => {
-      const { data } = await supabase
-        .from('strade')
-        .select('via')
-        .ilike('via', `%${form.indirizzo}%`)
-        .limit(50)
-      if (data) {
-        const uniche = [...new Set(data.map((d) => d.via))]
-        setSuggerimentiVie(uniche.slice(0, 10))
-      }
-    }, 200)
-    return () => clearTimeout(timer)
-  }, [form.indirizzo, supabase])
-
-  async function selezionaVia(viaSelezionata: string) {
-    upd('indirizzo', viaSelezionata)
-    setMostraSuggerimentiVie(false)
-    const { data } = await supabase
-      .from('strade')
-      .select('comune, frazione, cap')
-      .eq('via', viaSelezionata)
-      .limit(1)
-      .maybeSingle()
-    if (data) {
-      upd('comune', data.comune || '')
-      upd('frazione', data.frazione || '')
-      upd('cap', data.cap || '')
-    }
-  }
-
   const mostraMotivoChiusura = form.stato.startsWith('chiusa_')
-  const isClienteCerca = form.tipo_notizia === 'cliente_cerca'
+  const isImmobileVuoto = form.tipo_notizia === 'immobile_vuoto'
   const isImmobileVendesi = form.tipo_notizia === 'immobile_vendesi'
 
   return (
@@ -94,17 +72,17 @@ export default function FormNotizia({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
             type="button"
-            onClick={() => upd('tipo_notizia', 'cliente_cerca')}
+            onClick={() => upd('tipo_notizia', 'immobile_vuoto')}
             className={`text-left px-5 py-4 rounded-xl border-2 transition-colors ${
-              isClienteCerca
-                ? 'border-blue-500 bg-blue-500/10'
+              isImmobileVuoto
+                ? 'border-amber-500 bg-amber-500/10'
                 : 'border-slate-700 bg-slate-900 hover:border-slate-600'
             }`}
           >
-            <div className="text-2xl mb-1">🔍</div>
-            <div className="font-semibold text-white">Cliente cerca casa</div>
+            <div className="text-2xl mb-1">🏚️</div>
+            <div className="font-semibold text-white">Immobile vuoto</div>
             <div className="text-xs text-slate-400 mt-1">
-              Un potenziale acquirente o inquilino
+              Un immobile che potrebbe essere in vendita, da indagare
             </div>
           </button>
           <button
@@ -119,11 +97,35 @@ export default function FormNotizia({
             <div className="text-2xl mb-1">🏠</div>
             <div className="font-semibold text-white">Immobile da vendere</div>
             <div className="text-xs text-slate-400 mt-1">
-              Un immobile che potrebbe entrare in portafoglio
+              Un immobile che è già in vendita
             </div>
           </button>
         </div>
         <input type="hidden" name="tipo_notizia" value={form.tipo_notizia} />
+      </section>
+
+      {/* IMMOBILE COLLEGATO */}
+      <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 className="text-lg font-semibold mb-4">Immobile collegato *</h2>
+        <div>
+          <select
+            name="immobile_id"
+            required
+            value={form.immobile_id}
+            onChange={(e) => upd('immobile_id', e.target.value)}
+            className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">— Seleziona immobile —</option>
+            {immobili.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-slate-500 mt-1">
+            L&apos;immobile deve esistere in portafoglio prima di creare la notizia
+          </p>
+        </div>
       </section>
 
       {/* PROVENIENZA */}
@@ -163,107 +165,13 @@ export default function FormNotizia({
               <option value="">— Nessuno —</option>
               {clienti.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.cognome} {c.nome}
+                  {c.label}
                 </option>
               ))}
             </select>
-          </div>
-        </div>
-      </section>
-
-      {/* INDIRIZZO */}
-      <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4">
-          Indirizzo{' '}
-          <span className="text-slate-500 text-sm font-normal">
-            {isImmobileVendesi
-              ? "(dell'immobile da vendere)"
-              : '(opzionale, se il cliente cerca in una zona specifica)'}
-          </span>
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-          {/* Via con autocomplete */}
-          <div className="md:col-span-4 relative">
-            <label className="block text-sm font-medium text-slate-300 mb-2">Via</label>
-            <input
-              type="text"
-              name="indirizzo"
-              value={form.indirizzo}
-              onChange={(e) => {
-                upd('indirizzo', e.target.value)
-                setMostraSuggerimentiVie(true)
-              }}
-              onFocus={() => setMostraSuggerimentiVie(true)}
-              onBlur={() => setTimeout(() => setMostraSuggerimentiVie(false), 200)}
-              autoComplete="off"
-              placeholder="Inizia a digitare..."
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            {mostraSuggerimentiVie && suggerimentiVie.length > 0 && (
-              <ul className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
-                {suggerimentiVie.map((s) => (
-                  <li
-                    key={s}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      selezionaVia(s)
-                    }}
-                    className="px-4 py-2 hover:bg-slate-700 cursor-pointer text-white text-sm"
-                  >
-                    {s}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-300 mb-2">Civico</label>
-            <input
-              type="text"
-              name="civico"
-              value={form.civico}
-              onChange={(e) => upd('civico', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Frazione
-            </label>
-            <input
-              type="text"
-              name="frazione"
-              value={form.frazione}
-              onChange={(e) => upd('frazione', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="md:col-span-3">
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Comune <span className="text-slate-500 text-xs">(auto dalla via)</span>
-            </label>
-            <input
-              type="text"
-              name="comune"
-              value={form.comune}
-              onChange={(e) => upd('comune', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="md:col-span-1">
-            <label className="block text-sm font-medium text-slate-300 mb-2">CAP</label>
-            <input
-              type="text"
-              name="cap"
-              maxLength={5}
-              value={form.cap}
-              onChange={(e) => upd('cap', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <p className="text-xs text-slate-500 mt-1">
+              Es. il proprietario dell&apos;immobile, se lo conosci già
+            </p>
           </div>
         </div>
       </section>

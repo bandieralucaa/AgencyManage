@@ -5,8 +5,7 @@ import RicercaValutazioni from '@/components/ricerca-valutazioni'
 const STATI: Record<string, { label: string; colore: string }> = {
   da_fare: { label: 'Da fare', colore: 'bg-amber-500/20 text-amber-400' },
   fatta: { label: 'Fatta', colore: 'bg-blue-500/20 text-blue-400' },
-  seguita: { label: 'Seguita', colore: 'bg-emerald-500/20 text-emerald-400' },
-  persa: { label: 'Persa', colore: 'bg-red-500/20 text-red-400' },
+  annullata: { label: 'Annullata', colore: 'bg-red-500/20 text-red-400' },
 }
 
 export default async function ValutazioniPage({
