@@ -31,6 +31,7 @@ export default function FormIncarico({
     data_scadenza: incarico?.data_scadenza ?? '',
     prezzo: incarico?.prezzo ?? '',
     prezzo_pubblicita: incarico?.prezzo_pubblicita ?? '',
+    spese_condominiali: incarico?.spese_condominiali ?? '',
     esclusivo: incarico?.esclusivo ?? false,
     stato: incarico?.stato ?? 'attivo',
     data_chiusura: incarico?.data_chiusura ?? '',
@@ -142,6 +143,18 @@ export default function FormIncarico({
               name="prezzo_pubblicita"
               value={form.prezzo_pubblicita}
               onChange={(v) => upd('prezzo_pubblicita', v)}
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-2">
+              Spese condominiali €/mese
+            </label>
+            <input
+              type="number"
+              name="spese_condominiali"
+              value={form.spese_condominiali}
+              onChange={(e) => upd('spese_condominiali', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>

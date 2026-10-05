@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import EliminaIncaricoButton from './elimina-button'
 import SezioneAttivita from '@/components/sezione-attivita'
+import SezioneVisite from '@/components/sezione-visite'
 import TimelineFlusso from '@/components/timeline-flusso'
 import BreadcrumbFlusso from '@/components/breadcrumb-flusso'
 
@@ -82,6 +83,13 @@ export default async function IncaricoPage({
     .select('*, agenti (nome, cognome)')
     .eq('incarico_id', id)
     .order('data_attivita', { ascending: false })
+
+      // Visite effettuate su questo incarico
+  const { data: visite } = await supabase
+    .from('visite')
+    .select('id, data_visita, note, immobili (indirizzo, civico, comune), clienti (nome, cognome)')
+    .eq('incarico_id', id)
+    .order('data_visita', { ascending: false })
 
     // Visite ricevute su questo immobile (da qualsiasi richiesta)
   let visiteRicevute: any[] = []
@@ -317,6 +325,14 @@ export default async function IncaricoPage({
                 </dd>
               </div>
             )}
+                        {incarico.spese_condominiali && (
+              <div>
+                <dt className="text-slate-400">Spese condominiali</dt>
+                <dd className="text-white mt-0.5">
+                  € {Number(incarico.spese_condominiali).toLocaleString('it-IT')}/mese
+                </dd>
+              </div>
+            )}
             <div>
               <dt className="text-slate-400">Esclusiva</dt>
               <dd className="text-white mt-0.5">
@@ -427,6 +443,16 @@ export default async function IncaricoPage({
         </div>
       )}
 
+
+            <SezioneVisite
+        visite={visite || []}
+        contesto={{
+          immobile_id: incarico.immobile_id || undefined,
+          cliente_id: incarico.cliente_id || undefined,
+        }}
+        mostraFormImmobile={false}
+        mostraFormCliente={true}
+      />
 
       <SezioneAttivita
         entita="incarico"

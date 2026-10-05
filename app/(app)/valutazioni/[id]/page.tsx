@@ -3,10 +3,9 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import EliminaValutazioneButton from './elimina-button'
 import SezioneAttivita from '@/components/sezione-attivita'
-import PulsanteConverti from '@/components/pulsante-converti'
+import ConvertiValutazioneIncarico from '@/components/converti-valutazione-incarico'
 import TimelineFlusso from '@/components/timeline-flusso'
 import BreadcrumbFlusso from '@/components/breadcrumb-flusso'
-import { valutazioneToIncarico } from '@/app/(app)/flusso/actions'
 
 const STATI: Record<string, { label: string; colore: string }> = {
   da_fare: { label: 'Da fare', colore: 'bg-amber-500/20 text-amber-400' },
@@ -174,13 +173,14 @@ export default async function ValutazionePage({
 
       {mostraPulsanteIncarico && (
         <div className="mb-6">
-          <PulsanteConverti
-            label="Crea incarico"
-            descrizione="Il proprietario ti ha dato il mandato? Crea l'incarico."
-            azione={valutazioneToIncarico}
-            id={id}
-            colore="blue"
-            icona="📝"
+          <ConvertiValutazioneIncarico
+            valutazioneId={id}
+            indirizzoCompleto={
+              immobile
+                ? `${immobile.indirizzo} ${immobile.civico || ''}, ${immobile.comune}`
+                : `${valutazione.indirizzo} ${valutazione.civico || ''}, ${valutazione.comune}`
+            }
+            prezzoSuggerito={valutazione.prezzo_richiesto || valutazione.prezzo_valutato}
           />
         </div>
       )}

@@ -251,11 +251,16 @@ export default async function DashboardPage() {
         </div>
         {calendario.eventi.length > 0 ? (
           <ul className="space-y-3">
-            {calendario.eventi.map((e) => (
+                        {calendario.eventi.map((e) => (
               <li
                 key={e.id}
-                className="flex items-start gap-4 pb-3 border-b border-slate-700 last:border-0 last:pb-0"
+                className="flex items-start gap-3 pb-3 border-b border-slate-700 last:border-0 last:pb-0"
               >
+                <div
+                  className="w-1 self-stretch rounded-full shrink-0 mt-0.5"
+                  style={{ backgroundColor: e.colore || '#3b82f6' }}
+                  title={e.calendario || ''}
+                />
                 <div className="text-sm text-blue-400 font-medium w-24 shrink-0 pt-0.5">
                   {e.tuttoIlGiorno
                     ? 'Tutto il giorno'
@@ -268,6 +273,11 @@ export default async function DashboardPage() {
                   <div className="text-sm font-medium">{e.titolo}</div>
                   {e.luogo && (
                     <div className="text-xs text-slate-400 mt-1">📍 {e.luogo}</div>
+                  )}
+                  {e.calendario && (
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {e.calendario}
+                    </div>
                   )}
                 </div>
               </li>

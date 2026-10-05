@@ -3,77 +3,78 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-export async function creaVisita(data: {
-  richiesta_id: string
-  immobile_id?: string
-  cliente_id?: string
-  data_visita: string
-  ora_visita?: string
-  esito: string
-  motivo_rifiuto?: string
-  note?: string
-}): Promise<{ ok: boolean; errore?: string }> {
+function stringOrNull(v: FormDataEntryValue | null) {
+  if (!v || v === '') return null
+  return v as string
+}
+
+export async function creaVisita(formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return { ok: false, errore: 'Non autenticato' }
+  if (!user) throw new Error('Non autenticato')
+
+  const immobileId = formData.get('immobile_id') as string
+  if (!immobileId) throw new Error('Immobile obbligatorio')
+
+  // Recupera l'incarico attivo collegato all'immobile (se esiste)
+  const { data: incarico } = await supabase
+    .from('incarichi')
+    .select('id')
+    .eq('immobile_id', immobileId)
+    .eq('stato', 'attivo')
+    .maybeSingle()
 
   const { error } = await supabase.from('visite').insert({
-    richiesta_id: data.richiesta_id,
-    immobile_id: data.immobile_id || null,
-    cliente_id: data.cliente_id || null,
+    richiesta_id: stringOrNull(formData.get('richiesta_id')),
+    immobile_id: immobileId,
+    incarico_id: incarico?.id || null,
+    cliente_id: stringOrNull(formData.get('cliente_id')),
     agente_id: user.id,
-    data_visita: data.data_visita,
-    ora_visita: data.ora_visita || null,
-    esito: data.esito,
-    motivo_rifiuto: data.motivo_rifiuto || null,
-    note: data.note || null,
+    data_visita: (formData.get('data_visita') as string) || new Date().toISOString().split('T')[0],
+    note: stringOrNull(formData.get('note')),
   })
 
-  if (error) return { ok: false, errore: error.message }
+  if (error) throw new Error(error.message)
 
-  revalidatePath(`/richieste/${data.richiesta_id}`)
-  return { ok: true }
+  const richiestaId = formData.get('richiesta_id') as string
+  if (richiestaId) revalidatePath(`/richieste/${richiestaId}`)
+  revalidatePath(`/immobili/${immobileId}`)
+  if (incarico?.id) revalidatePath(`/incarichi/${incarico.id}`)
 }
 
-export async function aggiornaVisita(
-  id: string,
-  richiestaId: string,
-  data: {
-    immobile_id?: string
-    data_visita: string
-    ora_visita?: string
-    esito: string
-    motivo_rifiuto?: string
-    note?: string
-  }
-): Promise<{ ok: boolean; errore?: string }> {
+export async function aggiornaVisita(id: string, formData: FormData) {
   const supabase = await createClient()
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('visite')
     .update({
-      immobile_id: data.immobile_id || null,
-      data_visita: data.data_visita,
-      ora_visita: data.ora_visita || null,
-      esito: data.esito,
-      motivo_rifiuto: data.motivo_rifiuto || null,
-      note: data.note || null,
+      data_visita: formData.get('data_visita') as string,
+      note: stringOrNull(formData.get('note')),
     })
     .eq('id', id)
+    .select('richiesta_id, immobile_id, incarico_id')
+    .single()
 
-  if (error) return { ok: false, errore: error.message }
+  if (error) throw new Error(error.message)
 
-  revalidatePath(`/richieste/${richiestaId}`)
-  return { ok: true }
+  if (data?.richiesta_id) revalidatePath(`/richieste/${data.richiesta_id}`)
+  if (data?.immobile_id) revalidatePath(`/immobili/${data.immobile_id}`)
+  if (data?.incarico_id) revalidatePath(`/incarichi/${data.incarico_id}`)
 }
 
-export async function eliminaVisita(
-  id: string,
-  richiestaId: string
-): Promise<{ ok: boolean; errore?: string }> {
+export async function eliminaVisita(id: string) {
   const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('visite')
+    .select('richiesta_id, immobile_id, incarico_id')
+    .eq('id', id)
+    .maybeSingle()
+
   const { error } = await supabase.from('visite').delete().eq('id', id)
-  if (error) return { ok: false, errore: error.message }
-  revalidatePath(`/richieste/${richiestaId}`)
-  return { ok: true }
+  if (error) throw new Error(error.message)
+
+  if (data?.richiesta_id) revalidatePath(`/richieste/${data.richiesta_id}`)
+  if (data?.immobile_id) revalidatePath(`/immobili/${data.immobile_id}`)
+  if (data?.incarico_id) revalidatePath(`/incarichi/${data.incarico_id}`)
 }

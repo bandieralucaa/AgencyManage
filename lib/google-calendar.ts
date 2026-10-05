@@ -9,12 +9,59 @@ export type EventoCalendario = {
   luogo?: string
   descrizione?: string
   calendario?: string
-  calendarioId?: string
+  colore?: string
 }
 
 export type StatoCalendario = {
   connesso: boolean
   eventi: EventoCalendario[]
+}
+
+/**
+ * Restituisce l'offset di Europe/Rome per una data specifica (gestisce ora legale).
+ */
+function getRomeOffset(date: Date): string {
+  const romeDate = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Rome' }))
+  const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }))
+  const offsetMin = (romeDate.getTime() - utcDate.getTime()) / 60000
+  const sign = offsetMin >= 0 ? '+' : '-'
+  const absMin = Math.abs(offsetMin)
+  const hours = String(Math.floor(absMin / 60)).padStart(2, '0')
+  const mins = String(absMin % 60).padStart(2, '0')
+  return `${sign}${hours}:${mins}`
+}
+
+/**
+ * Range di oggi in ora italiana (00:00 → 23:59).
+ */
+function getRangeOggi(): { inizio: string; fine: string } {
+  const oggi = new Date()
+  const dataRoma = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Rome',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(oggi)
+  const offset = getRomeOffset(oggi)
+  return {
+    inizio: `${dataRoma}T00:00:00${offset}`,
+    fine: `${dataRoma}T23:59:59${offset}`,
+  }
+}
+
+/**
+ * Range di un mese in ora italiana.
+ */
+function getRangeMese(anno: number, mese: number): { inizio: string; fine: string } {
+  const dataInizio = `${anno}-${String(mese + 1).padStart(2, '0')}-01`
+  const annoFine = mese === 11 ? anno + 1 : anno
+  const meseFine = mese === 11 ? 1 : mese + 2
+  const dataFine = `${annoFine}-${String(meseFine).padStart(2, '0')}-01`
+  const offset = getRomeOffset(new Date())
+  return {
+    inizio: `${dataInizio}T00:00:00${offset}`,
+    fine: `${dataFine}T00:00:00${offset}`,
+  }
 }
 
 async function getAccessToken(agenteId: string): Promise<string | null> {
@@ -97,9 +144,7 @@ export async function getStatoCalendario(agenteId: string): Promise<StatoCalenda
   const calendarsData = await calendarsRes.json()
   const calendari = calendarsData.items || []
 
-  const oggi = new Date()
-  const inizio = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate()).toISOString()
-  const fine = new Date(oggi.getFullYear(), oggi.getMonth(), oggi.getDate() + 1).toISOString()
+  const { inizio, fine } = getRangeOggi()
 
   const tuttiEventi: EventoCalendario[] = []
 
@@ -127,7 +172,7 @@ export async function getStatoCalendario(agenteId: string): Promise<StatoCalenda
       tuttoIlGiorno: !e.start.dateTime,
       luogo: e.location,
       calendario: cal.summary,
-      calendarioId: cal.id,
+      colore: cal.backgroundColor,
     }))
 
     tuttiEventi.push(...eventi)
@@ -156,8 +201,7 @@ export async function getEventiMese(
   const calendarsData = await calendarsRes.json()
   const calendari = calendarsData.items || []
 
-  const inizio = new Date(anno, mese, 1).toISOString()
-  const fine = new Date(anno, mese + 1, 1).toISOString()
+  const { inizio, fine } = getRangeMese(anno, mese)
 
   const tuttiEventi: EventoCalendario[] = []
 
@@ -187,7 +231,7 @@ export async function getEventiMese(
       luogo: e.location,
       descrizione: e.description,
       calendario: cal.summary,
-      calendarioId: cal.id,
+      colore: cal.backgroundColor,
     }))
 
     tuttiEventi.push(...eventi)
@@ -253,7 +297,6 @@ export async function creaEvento(
       tuttoIlGiorno: !data.start.dateTime,
       luogo: data.location,
       descrizione: data.description,
-      calendarioId: 'primary',
     },
   }
 }

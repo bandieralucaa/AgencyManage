@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import EliminaRichiestaButton from './elimina-button'
-import SezioneAttivita from '@/components/sezione-attivita'
-
+import SezioneProposteVisita from '@/components/sezione-proposte-visita'
+import SezioneVisite from '@/components/sezione-visite'
 
 const STATI: Record<string, { label: string; colore: string }> = {
   nuova: { label: 'Nuova', colore: 'bg-blue-500/20 text-blue-400' },
@@ -150,11 +150,38 @@ export default async function RichiestaPage({
 
   if (!richiesta) notFound()
 
-  const { data: attivita } = await supabase
-    .from('attivita')
-    .select('*, agenti (nome, cognome)')
+  // Proposte di visita
+  const { data: proposteVisita } = await supabase
+    .from('proposte_visita')
+    .select('id, stato, data_proposta, data_risposta, motivo_rifiuto, immobile_id, immobili (indirizzo, civico, comune)')
     .eq('richiesta_id', id)
-    .order('data_attivita', { ascending: false })
+    .order('created_at', { ascending: false })
+
+  const proposteVisitaNormalizzate = (proposteVisita || []).map((p: any) => {
+    const immobile = Array.isArray(p.immobili) ? p.immobili[0] ?? null : p.immobili ?? null
+
+    return {
+      ...p,
+      immobili: immobile
+        ? {
+            indirizzo: immobile.indirizzo ?? '',
+            civico: immobile.civico ?? null,
+            comune: immobile.comune ?? '',
+          }
+        : {
+            indirizzo: '',
+            civico: null,
+            comune: '',
+          },
+    }
+  })
+
+  // Visite effettuate per questa richiesta
+  const { data: visite } = await supabase
+    .from('visite')
+    .select('id, data_visita, note, immobili (indirizzo, civico, comune), clienti (nome, cognome)')
+    .eq('richiesta_id', id)
+    .order('data_visita', { ascending: false })
 
   const { data: proposte } = await supabase
     .from('proposte')
@@ -607,11 +634,20 @@ export default async function RichiestaPage({
         )}
       </div>
 
-      {/* ATTIVITÀ */}
-      <SezioneAttivita
-        entita="richiesta"
-        entitaId={id}
-        attivita={attivita || []}
+      <SezioneProposteVisita
+        richiestaId={id}
+        clienteId={richiesta.cliente_id}
+        proposte={proposteVisitaNormalizzate}
+      />
+
+      <SezioneVisite
+        visite={visite || []}
+        contesto={{
+          richiesta_id: id,
+          cliente_id: richiesta.cliente_id,
+        }}
+        mostraFormImmobile={true}
+        mostraFormCliente={false}
       />
     </div>
   )

@@ -12,6 +12,7 @@ type Evento = {
   descrizione?: string
   calendario?: string
   calendarioId?: string
+  colore?: string
 }
 
 type Modale = {
@@ -330,11 +331,12 @@ export default function AgendaCalendario() {
                 </div>
 
                 <div className="space-y-0.5">
-                  {eventiGiorno.slice(0, 3).map((ev) => {
+                                    {eventiGiorno.slice(0, 3).map((ev) => {
                     const inizio = new Date(ev.inizio)
                     const orario = ev.tuttoIlGiorno
                       ? ''
                       : `${String(inizio.getHours()).padStart(2, '0')}:${String(inizio.getMinutes()).padStart(2, '0')} `
+                    const colore = ev.colore || '#3b82f6'
                     return (
                       <div
                         key={ev.id}
@@ -342,8 +344,9 @@ export default function AgendaCalendario() {
                           e.stopPropagation()
                           apriModificaEvento(ev)
                         }}
-                        className="text-[11px] px-1.5 py-0.5 rounded bg-blue-600 hover:bg-blue-500 text-white truncate cursor-pointer"
-                        title={`${orario}${ev.titolo}`}
+                        className="text-[11px] px-1.5 py-0.5 rounded hover:opacity-80 text-white truncate cursor-pointer flex items-center gap-1"
+                        style={{ backgroundColor: colore }}
+                        title={`${orario}${ev.titolo}${ev.calendario ? ` (${ev.calendario})` : ''}`}
                       >
                         {orario}
                         {ev.titolo}

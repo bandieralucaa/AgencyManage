@@ -7,7 +7,7 @@ import { redirect } from 'next/navigation'
  * NOTIZIA → VALUTAZIONE
  * Copia immobile_id, cliente_id, indirizzo dalla notizia
  */
-export async function notiziaToValutazione(notiziaId: string) {
+export async function notiziaToValutazione(notiziaId: string, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non autenticato')
@@ -20,6 +20,12 @@ export async function notiziaToValutazione(notiziaId: string) {
 
   if (!notizia) throw new Error('Notizia non trovata')
 
+  function numOrNull(v: FormDataEntryValue | null) {
+    if (!v || v === '') return null
+    const n = Number(v)
+    return isNaN(n) ? null : n
+  }
+
   const { data: nuovaValutazione, error } = await supabase
     .from('valutazioni')
     .insert({
@@ -31,8 +37,13 @@ export async function notiziaToValutazione(notiziaId: string) {
       civico: notizia.civico,
       frazione: notizia.frazione,
       comune: notizia.comune,
-      data_valutazione: new Date().toISOString().split('T')[0],
-      stato: 'da_fare',
+      data_valutazione: (formData.get('data_valutazione') as string) || new Date().toISOString().split('T')[0],
+      prezzo_valutato: numOrNull(formData.get('prezzo_valutato')),
+      prezzo_richiesto: numOrNull(formData.get('prezzo_richiesto')),
+      prezzo_minimo: numOrNull(formData.get('prezzo_pubblicita')),
+      metratura: numOrNull(formData.get('metratura')),
+      stato: (formData.get('stato') as string) || 'da_fare',
+      note: formData.get('note') || null,
     })
     .select()
     .single()
@@ -51,7 +62,7 @@ export async function notiziaToValutazione(notiziaId: string) {
  * VALUTAZIONE → INCARICO
  * Copia immobile_id e cliente_id dalla valutazione
  */
-export async function valutazioneToIncarico(valutazioneId: string) {
+export async function valutazioneToIncarico(valutazioneId: string, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Non autenticato')
@@ -64,9 +75,11 @@ export async function valutazioneToIncarico(valutazioneId: string) {
 
   if (!valutazione) throw new Error('Valutazione non trovata')
 
-  const oggi = new Date()
-  const scadenza = new Date(oggi)
-  scadenza.setFullYear(scadenza.getFullYear() + 1)
+  function numOrNull(v: FormDataEntryValue | null) {
+    if (!v || v === '') return null
+    const n = Number(v)
+    return isNaN(n) ? null : n
+  }
 
   const { data: nuovoIncarico, error } = await supabase
     .from('incarichi')
@@ -75,12 +88,14 @@ export async function valutazioneToIncarico(valutazioneId: string) {
       immobile_id: valutazione.immobile_id,
       cliente_id: valutazione.cliente_id,
       agente_id: user.id,
-      tipo: 'vendita',
-      data_inizio: oggi.toISOString().split('T')[0],
-      data_scadenza: scadenza.toISOString().split('T')[0],
-      prezzo: valutazione.prezzo_richiesto || valutazione.prezzo_valutato || null,
-      esclusivo: false,
-      stato: 'attivo',
+      tipo: (formData.get('tipo') as string) || 'vendita',
+      data_inizio: (formData.get('data_inizio') as string) || new Date().toISOString().split('T')[0],
+      data_scadenza: formData.get('data_scadenza') as string,
+      prezzo: numOrNull(formData.get('prezzo')),
+      prezzo_pubblicita: numOrNull(formData.get('prezzo_pubblicita')),
+      esclusivo: formData.get('esclusivo') === 'on',
+      stato: (formData.get('stato') as string) || 'attivo',
+      note: formData.get('note') || null,
     })
     .select()
     .single()
@@ -89,7 +104,7 @@ export async function valutazioneToIncarico(valutazioneId: string) {
 
   await supabase
     .from('valutazioni')
-    .update({ stato: 'seguita' })
+    .update({ stato: 'fatta' })
     .eq('id', valutazioneId)
 
   redirect(`/incarichi/${nuovoIncarico.id}`)

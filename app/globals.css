@@ -12,8 +12,12 @@
   --font-mono: var(--font-geist-mono);
 }
 
-html {
+html.dark {
   color-scheme: dark;
+}
+
+html.light {
+  color-scheme: light;
 }
 
 body {
@@ -22,139 +26,94 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ============================================================ */
-/* TEMA CHIARO — palette ZINC + accenti EMERALD                 */
-/* ============================================================ */
+/* ============================================ */
+/* TEMA CHIARO - Bianco + Rosso                 */
+/* ============================================ */
 
-html.light {
+.light {
   color-scheme: light;
 }
 
-html.light body {
-  background-color: #fafafa;
-  color: #18181b;
-}
-
-/* ---------- SFONDI ---------- */
-html.light .bg-slate-900     { background-color: #fafafa !important; }
-html.light .bg-slate-800     { background-color: #ffffff !important; }
-html.light .bg-slate-700     { background-color: #f4f4f5 !important; }
-html.light .bg-slate-600     { background-color: #e4e4e7 !important; }
-
-html.light .bg-slate-900\/50 { background-color: rgba(250, 250, 250, 0.75) !important; }
-html.light .bg-slate-900\/40 { background-color: rgba(250, 250, 250, 0.65) !important; }
-html.light .bg-slate-800\/70 { background-color: rgba(255, 255, 255, 0.85) !important; }
-html.light .bg-slate-800\/60 { background-color: rgba(255, 255, 255, 0.75) !important; }
-html.light .bg-slate-700\/60 { background-color: #f4f4f5 !important; }
-html.light .bg-slate-700\/40 { background-color: #f4f4f5 !important; }
-
-html.light .hover\:bg-slate-700:hover     { background-color: #e4e4e7 !important; }
-html.light .hover\:bg-slate-600:hover     { background-color: #d4d4d8 !important; }
-html.light .hover\:bg-slate-700\/60:hover { background-color: #e4e4e7 !important; }
-html.light .hover\:bg-slate-700\/40:hover { background-color: #e4e4e7 !important; }
-html.light .hover\:bg-slate-800\/60:hover { background-color: #f4f4f5 !important; }
-html.light .hover\:bg-slate-500:hover     { background-color: #a1a1aa !important; }
-
-/* ---------- TESTI ---------- */
-html.light .text-white     { color: #18181b !important; }
-html.light .text-slate-100 { color: #18181b !important; }
-html.light .text-slate-200 { color: #27272a !important; }
-html.light .text-slate-300 { color: #3f3f46 !important; }
-html.light .text-slate-400 { color: #52525b !important; }
-html.light .text-slate-500 { color: #71717a !important; }
-html.light .text-slate-600 { color: #a1a1aa !important; }
-
-/* ---------- BORDI ---------- */
-html.light .border-slate-700 { border-color: #e4e4e7 !important; }
-html.light .border-slate-600 { border-color: #d4d4d8 !important; }
-html.light .border-slate-500 { border-color: #a1a1aa !important; }
-
-/* ---------- INPUT / SELECT / TEXTAREA ---------- */
-html.light input,
-html.light select,
-html.light textarea {
+.light body {
   background-color: #ffffff !important;
-  color: #18181b !important;
-  border-color: #d4d4d8 !important;
+  color: #0f172a !important;
 }
 
-html.light input::placeholder,
-html.light textarea::placeholder {
-  color: #a1a1aa !important;
+/* Sfondo scuro → bianco/chiaro */
+.light .bg-slate-900 { background-color: #f8fafc !important; }
+.light .bg-slate-800 { background-color: #ffffff !important; }
+.light .bg-slate-700 { background-color: #e2e8f0 !important; }
+.light .bg-slate-900\/50 { background-color: #f8fafc !important; }
+.light .bg-slate-800\/70 { background-color: #f1f5f9 !important; }
+
+/* Hover */
+.light .hover\:bg-slate-700:hover { background-color: #e2e8f0 !important; }
+.light .hover\:bg-slate-600:hover { background-color: #cbd5e1 !important; }
+.light .hover\:bg-slate-700\/40:hover { background-color: #f1f5f9 !important; }
+.light .hover\:bg-slate-700\/60:hover { background-color: #f1f5f9 !important; }
+.light .hover\:bg-slate-800\/60:hover { background-color: #f1f5f9 !important; }
+
+/* Testi */
+.light .text-white { color: #0f172a !important; }
+.light .text-slate-100 { color: #1e293b !important; }
+.light .text-slate-200 { color: #334155 !important; }
+.light .text-slate-300 { color: #475569 !important; }
+.light .text-slate-400 { color: #64748b !important; }
+.light .text-slate-500 { color: #94a3b8 !important; }
+.light .text-slate-600 { color: #64748b !important; }
+
+/* Bordi */
+.light .border-slate-700 { border-color: #e2e8f0 !important; }
+.light .border-slate-600 { border-color: #cbd5e1 !important; }
+.light .border-slate-500 { border-color: #94a3b8 !important; }
+
+/* Input */
+.light input,
+.light select,
+.light textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+.light input::placeholder,
+.light textarea::placeholder {
+  color: #94a3b8 !important;
 }
 
-html.light input:focus,
-html.light select:focus,
-html.light textarea:focus {
-  border-color: #059669 !important;
+/* Ombre più chiare */
+.light .shadow-xl,
+.light .shadow-2xl {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -2px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* ============================================ */
+/* ACCENTI: da blu a ROSSO (nel tema chiaro)   */
+/* ============================================ */
+
+/* Bottoni primari */
+.light .bg-blue-600 { background-color: #dc2626 !important; }
+.light .hover\:bg-blue-700:hover { background-color: #b91c1c !important; }
+
+/* Link e testi blu */
+.light .text-blue-400 { color: #dc2626 !important; }
+.light .text-blue-300 { color: #ef4444 !important; }
+
+/* Sidebar attivo */
+.light aside .bg-blue-600 { background-color: #dc2626 !important; }
+
+/* Focus ring */
+.light input:focus,
+.light select:focus,
+.light textarea:focus {
   outline: none !important;
-  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.15) !important;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.4) !important;
 }
 
-/* ---------- SHADOW più delicato ---------- */
-html.light .shadow-xl,
-html.light .shadow-2xl {
-  box-shadow:
-    0 4px 12px -2px rgba(24, 24, 27, 0.06),
-    0 2px 6px -2px rgba(24, 24, 27, 0.04) !important;
-}
+/* Hover sui bottoni blu secondari */
+.light .hover\:text-blue-400:hover { color: #dc2626 !important; }
+.light .hover\:text-blue-300:hover { color: #ef4444 !important; }
 
-/* ---------- ACCENTI — palette EMERALD ---------- */
-
-/* Primary: blu → emerald */
-html.light .bg-blue-600              { background-color: #059669 !important; }
-html.light .hover\:bg-blue-700:hover { background-color: #047857 !important; }
-html.light .bg-blue-500              { background-color: #10b981 !important; }
-html.light .bg-blue-500\/20          { background-color: #d1fae5 !important; }
-html.light .bg-blue-500\/15          { background-color: #d1fae5 !important; }
-html.light .bg-blue-500\/10          { background-color: #d1fae5 !important; }
-html.light .text-blue-400            { color: #047857 !important; }
-html.light .text-blue-500            { color: #059669 !important; }
-html.light .border-blue-500          { border-color: #10b981 !important; }
-html.light .border-blue-600          { border-color: #059669 !important; }
-
-/* Emerald nativo */
-html.light .bg-emerald-500\/20 { background-color: #d1fae5 !important; }
-html.light .bg-emerald-500\/15 { background-color: #d1fae5 !important; }
-html.light .bg-emerald-500\/10 { background-color: #d1fae5 !important; }
-html.light .bg-emerald-600     { background-color: #059669 !important; }
-html.light .bg-emerald-500     { background-color: #10b981 !important; }
-html.light .hover\:bg-emerald-700:hover { background-color: #047857 !important; }
-html.light .text-emerald-400   { color: #047857 !important; }
-html.light .text-emerald-500   { color: #059669 !important; }
-html.light .border-emerald-500 { border-color: #10b981 !important; }
-html.light .border-emerald-600 { border-color: #059669 !important; }
-
-/* Amber (warning) */
-html.light .bg-amber-500\/20 { background-color: #fef3c7 !important; }
-html.light .bg-amber-500\/15 { background-color: #fef3c7 !important; }
-html.light .bg-amber-500\/10 { background-color: #fef3c7 !important; }
-html.light .bg-amber-500     { background-color: #f59e0b !important; }
-html.light .text-amber-400   { color: #b45309 !important; }
-html.light .text-amber-500   { color: #d97706 !important; }
-
-/* Red (errore) */
-html.light .bg-red-500\/20 { background-color: #fee2e2 !important; }
-html.light .bg-red-500\/15 { background-color: #fee2e2 !important; }
-html.light .bg-red-500\/10 { background-color: #fee2e2 !important; }
-html.light .bg-red-500\/5  { background-color: #fef2f2 !important; }
-html.light .bg-red-600     { background-color: #dc2626 !important; }
-html.light .hover\:bg-red-700:hover { background-color: #b91c1c !important; }
-html.light .text-red-400   { color: #b91c1c !important; }
-html.light .text-red-500   { color: #dc2626 !important; }
-
-/* Violet / Purple (badge secondari) */
-html.light .bg-purple-500\/20 { background-color: #ede9fe !important; }
-html.light .bg-violet-500\/20 { background-color: #ede9fe !important; }
-html.light .bg-violet-500\/15 { background-color: #ede9fe !important; }
-html.light .bg-violet-600     { background-color: #7c3aed !important; }
-html.light .text-purple-400   { color: #6d28d9 !important; }
-html.light .text-violet-400   { color: #6d28d9 !important; }
-
-/* Pink */
-html.light .bg-pink-500\/20 { background-color: #fce7f3 !important; }
-html.light .text-pink-400   { color: #be185d !important; }
-
-/* ---------- MODALI / OVERLAY ---------- */
-html.light .bg-black\/60 { background-color: rgba(24, 24, 27, 0.35) !important; }
-html.light .bg-black\/50 { background-color: rgba(24, 24, 27, 0.30) !important; }
+/* Badge e elementi con bg-blue-500/20 */
+.light .bg-blue-500\/20 { background-color: rgba(220, 38, 38, 0.15) !important; }
+.light .text-blue-400 { color: #dc2626 !important; }

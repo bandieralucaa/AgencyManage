@@ -3,10 +3,9 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import EliminaNotiziaButton from './elimina-button'
 import SezioneAttivita from '@/components/sezione-attivita'
-import PulsanteConverti from '@/components/pulsante-converti'
+import ConvertiNotiziaValutazione from '@/components/converti-notizia-valutazione'
 import TimelineFlusso from '@/components/timeline-flusso'
 import BreadcrumbFlusso from '@/components/breadcrumb-flusso'
-import { notiziaToValutazione } from '@/app/(app)/flusso/actions'
 
 const STATI: Record<string, { label: string; colore: string }> = {
   aperta: { label: 'Aperta', colore: 'bg-blue-500/20 text-blue-400' },
@@ -215,13 +214,13 @@ export default async function NotiziaPage({
 
       {mostraPulsanteValutazione && (
         <div className="mb-6">
-          <PulsanteConverti
-            label="Crea valutazione"
-            descrizione="Fissa un appuntamento per andare a vedere l'immobile e crea una valutazione."
-            azione={notiziaToValutazione}
-            id={id}
-            colore="blue"
-            icona="📋"
+          <ConvertiNotiziaValutazione
+            notiziaId={id}
+            indirizzoCompleto={
+              immobile
+                ? `${immobile.indirizzo} ${immobile.civico || ''}, ${immobile.comune}`
+                : 'Immobile'
+            }
           />
         </div>
       )}
