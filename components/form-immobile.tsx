@@ -218,9 +218,6 @@ export default function FormImmobile({
                 </option>
               ))}
             </select>
-            <p className="text-xs text-slate-500 mt-1">
-              Compila automaticamente comune, CAP e provincia
-            </p>
           </div>
 
           {/* FRAZIONE (hidden - valore salvato nel DB) */}
@@ -229,7 +226,7 @@ export default function FormImmobile({
           {/* COMUNE (auto) */}
           <div className="md:col-span-3">
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Comune * <span className="text-slate-500 text-xs">(auto)</span>
+              Comune * 
             </label>
             <input type="text" name="comune" required value={form.comune}
               onChange={(e) => upd('comune', e.target.value)}
@@ -239,7 +236,7 @@ export default function FormImmobile({
           {/* CAP (auto) */}
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              CAP <span className="text-slate-500 text-xs">(auto)</span>
+              CAP
             </label>
             <input type="text" name="cap" maxLength={5} value={form.cap}
               onChange={(e) => upd('cap', e.target.value)}
@@ -249,7 +246,7 @@ export default function FormImmobile({
           {/* PROVINCIA (auto) */}
           <div className="md:col-span-1">
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Prov. <span className="text-slate-500 text-xs">(auto)</span>
+              Prov. 
             </label>
             <input type="text" name="provincia" maxLength={2} value={form.provincia}
               onChange={(e) => upd('provincia', e.target.value)}
