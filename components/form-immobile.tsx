@@ -113,14 +113,11 @@ export default function FormImmobile({
     setMostraSuggerimenti(false)
   }
 
-  function selezionaFrazione(frazioneId: string) {
+    function selezionaFrazione(frazioneId: string) {
     upd('frazione_id', frazioneId)
     const fraz = frazioni.find((f) => f.id === frazioneId)
     if (fraz) {
       upd('frazione', fraz.nome)
-      upd('comune', fraz.comune)
-      upd('cap', fraz.cap)
-      upd('provincia', fraz.provincia)
     }
   }
 
@@ -179,10 +176,10 @@ export default function FormImmobile({
               <ul className="absolute z-10 top-full left-0 right-0 mt-1 bg-slate-900 border border-slate-600 rounded-lg max-h-60 overflow-y-auto shadow-xl">
                 {suggerimenti.map((s, i) => (
                   <li
-                    key={`${s.nome}-${s.frazione}-${i}`}
+                    key={`${s.nome}-${i}`}
                     onMouseDown={(e) => {
                       e.preventDefault()
-                      selezionaVia(s)
+                      selezionaVia(s.nome)
                     }}
                     className="px-4 py-2 hover:bg-slate-700 cursor-pointer text-white text-sm"
                   >
