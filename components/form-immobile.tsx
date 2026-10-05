@@ -113,11 +113,19 @@ export default function FormImmobile({
     setMostraSuggerimenti(false)
   }
 
-    function selezionaFrazione(frazioneId: string) {
+  function selezionaFrazione(frazioneId: string) {
+    // 1. Aggiorna l'id della frazione selezionata
     upd('frazione_id', frazioneId)
+
+    // 2. Trova la frazione nella lista caricata
     const fraz = frazioni.find((f) => f.id === frazioneId)
+
+    // 3. Se esiste, compila automaticamente i campi correlati
     if (fraz) {
-      upd('frazione', fraz.nome)
+      upd('frazione', fraz.nome)      // Nome frazione (es. "Altedo")
+      upd('comune', fraz.comune)      // Comune (es. "Malalbergo")
+      upd('cap', fraz.cap)            // CAP (es. "40051")
+      upd('provincia', fraz.provincia) // Provincia (es. "BO")
     }
   }
 
