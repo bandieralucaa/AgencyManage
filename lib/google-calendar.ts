@@ -173,6 +173,7 @@ export async function getStatoCalendario(agenteId: string): Promise<StatoCalenda
       tuttoIlGiorno: !e.start.dateTime,
       luogo: e.location,
       calendario: cal.summary,
+      colore: cal.backgroundColor,
     }))
 
     tuttiEventi.push(...eventi)
