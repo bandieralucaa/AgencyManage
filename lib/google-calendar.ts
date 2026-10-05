@@ -10,6 +10,7 @@ export type EventoCalendario = {
   descrizione?: string
   calendario?: string
   colore?: string
+  calendarioId?: string
 }
 
 export type StatoCalendario = {
@@ -17,9 +18,6 @@ export type StatoCalendario = {
   eventi: EventoCalendario[]
 }
 
-/**
- * Restituisce l'offset di Europe/Rome per una data specifica (gestisce ora legale).
- */
 function getRomeOffset(date: Date): string {
   const romeDate = new Date(date.toLocaleString('en-US', { timeZone: 'Europe/Rome' }))
   const utcDate = new Date(date.toLocaleString('en-US', { timeZone: 'UTC' }))
@@ -31,9 +29,6 @@ function getRomeOffset(date: Date): string {
   return `${sign}${hours}:${mins}`
 }
 
-/**
- * Range di oggi in ora italiana (00:00 → 23:59).
- */
 function getRangeOggi(): { inizio: string; fine: string } {
   const oggi = new Date()
   const dataRoma = new Intl.DateTimeFormat('en-CA', {
@@ -49,9 +44,6 @@ function getRangeOggi(): { inizio: string; fine: string } {
   }
 }
 
-/**
- * Range di un mese in ora italiana.
- */
 function getRangeMese(anno: number, mese: number): { inizio: string; fine: string } {
   const dataInizio = `${anno}-${String(mese + 1).padStart(2, '0')}-01`
   const annoFine = mese === 11 ? anno + 1 : anno
@@ -144,7 +136,6 @@ export async function getStatoCalendario(agenteId: string): Promise<StatoCalenda
   const calendarsData = await calendarsRes.json()
   const calendari = calendarsData.items || []
 
-  // Usa il range calcolato in ora italiana (Europe/Rome)
   const { inizio, fine } = getRangeOggi()
 
   const tuttiEventi: EventoCalendario[] = []
@@ -233,6 +224,7 @@ export async function getEventiMese(
       descrizione: e.description,
       calendario: cal.summary,
       colore: cal.backgroundColor,
+      calendarioId: cal.id,
     }))
 
     tuttiEventi.push(...eventi)
@@ -243,6 +235,7 @@ export async function getEventiMese(
 
 export async function creaEvento(
   agenteId: string,
+  calendarId: string,
   evento: {
     titolo: string
     inizio: string
@@ -270,7 +263,7 @@ export async function creaEvento(
   }
 
   const res = await fetch(
-    'https://www.googleapis.com/calendar/v3/calendars/primary/events',
+    `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`,
     {
       method: 'POST',
       headers: {
@@ -298,6 +291,7 @@ export async function creaEvento(
       tuttoIlGiorno: !data.start.dateTime,
       luogo: data.location,
       descrizione: data.description,
+      calendarioId: calendarId,
     },
   }
 }
@@ -374,4 +368,26 @@ export async function eliminaEvento(
   }
 
   return { ok: true }
+}
+
+export async function getCalendari(
+  agenteId: string
+): Promise<{ id: string; summary: string; colore?: string; primary: boolean }[]> {
+  const accessToken = await getAccessToken(agenteId)
+  if (!accessToken) return []
+
+  const res = await fetch(
+    'https://www.googleapis.com/calendar/v3/users/me/calendarList',
+    { headers: { Authorization: `Bearer ${accessToken}` } }
+  )
+
+  if (!res.ok) return []
+
+  const data = await res.json()
+  return (data.items || []).map((c: any) => ({
+    id: c.id,
+    summary: c.summary || 'Senza nome',
+    colore: c.backgroundColor,
+    primary: !!c.primary,
+  }))
 }

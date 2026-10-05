@@ -73,11 +73,26 @@ export default function AgendaCalendario() {
   const [dataCorrente, setDataCorrente] = useState(new Date())
   const [eventi, setEventi] = useState<Evento[]>([])
   const [loading, setLoading] = useState(false)
+  const [calendari, setCalendari] = useState<{ id: string; summary: string; colore?: string; primary: boolean }[]>([])
   const [modale, setModale] = useState<Modale>(MODALE_VUOTA)
   const [salvando, setSalvando] = useState(false)
   const [errore, setErrore] = useState('')
 
   const oggi = new Date()
+
+  // Carica la lista dei calendari (una volta sola)
+  useEffect(() => {
+    async function caricaCalendari() {
+      try {
+        const res = await fetch('/api/google/calendars')
+        const data = await res.json()
+        if (data.calendari) setCalendari(data.calendari)
+      } catch (err) {
+        console.error(err)
+      }
+    }
+    caricaCalendari()
+  }, [])
 
   useEffect(() => {
     async function carica() {
@@ -205,7 +220,7 @@ export default function AgendaCalendario() {
         tuttoIlGiorno: modale.tuttoIlGiorno,
         luogo: modale.luogo,
         descrizione: modale.descrizione,
-        calendarId: modale.calendarId,
+        calendarId: modale.calendarId || 'primary',
       }),
     })
 
@@ -386,7 +401,38 @@ export default function AgendaCalendario() {
                   autoFocus
                 />
               </div>
+              {!modale.id && calendari.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Calendario
+                  </label>
+                  <select
+                    value={modale.calendarId || 'primary'}
+                    onChange={(e) =>
+                      setModale({ ...modale, calendarId: e.target.value })
+                    }
+                    className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    {calendari.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.summary}
+                        {c.primary ? ' (principale)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
+              {modale.id && modale.calendarId && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">
+                    Calendario
+                  </label>
+                  <div className="px-3 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-slate-400 text-sm">
+                    {calendari.find((c) => c.id === modale.calendarId)?.summary || 'Calendario'}
+                  </div>
+                </div>
+              )}
               <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
                 <input
                   type="checkbox"

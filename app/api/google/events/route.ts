@@ -41,7 +41,9 @@ export async function POST(request: Request) {
       )
     }
 
-    const result = await creaEvento(user.id, {
+    const calendarId = body.calendarId || 'primary'
+
+    const result = await creaEvento(user.id, calendarId, {
       titolo: body.titolo,
       inizio: body.inizio,
       fine: body.fine,
