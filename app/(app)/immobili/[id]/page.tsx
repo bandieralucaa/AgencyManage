@@ -86,12 +86,21 @@ export default async function ImmobilePage({
     .eq('immobile_id', id)
     .order('data_attivita', { ascending: false })
 
-      // Visite effettuate su questo immobile
-  const { data: visite } = await supabase
-    .from('visite')
-    .select('id, data_visita, note, immobili (indirizzo, civico, comune), clienti (nome, cognome)')
-    .eq('immobile_id', id)
-    .order('data_visita', { ascending: false })
+const { data: visite } = await supabase
+  .from('visite')
+  .select(`
+    id,
+    immobile_id,
+    data_visita,
+    ora_visita,
+    esito,
+    motivo_rifiuto,
+    note,
+    immobili (indirizzo, civico, comune),
+    clienti (nome, cognome)
+  `)
+  .eq('immobile_id', id)
+  .order('data_visita', { ascending: false })
 
 
   const { data: proposte } = await supabase
@@ -379,14 +388,11 @@ export default async function ImmobilePage({
         )}
       </div>
 
-            <SezioneVisite
-        visite={visite || []}
-        contesto={{
-          immobile_id: id,
-        }}
-        mostraFormImmobile={false}
-        mostraFormCliente={true}
-      />
+      <SezioneVisite
+  richiestaId=""
+  clienteId={null}
+  visite={visite || []}
+/>
 
       <SezioneAttivita
         entita="immobile"
