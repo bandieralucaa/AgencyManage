@@ -29,6 +29,7 @@ export default function FormIncarico({
     tipo: incarico?.tipo ?? 'vendita',
     data_inizio: incarico?.data_inizio ?? new Date().toISOString().split('T')[0],
     data_scadenza: incarico?.data_scadenza ?? '',
+    seconda_data_scadenza: incarico?.seconda_data_scadenza ?? '',
     prezzo: incarico?.prezzo ?? '',
     prezzo_pubblicita: incarico?.prezzo_pubblicita ?? '',
     spese_condominiali: incarico?.spese_condominiali ?? '',
@@ -45,9 +46,18 @@ export default function FormIncarico({
 
   function validaDate(): string {
     if (!form.data_inizio || !form.data_scadenza) return ''
+
     if (new Date(form.data_scadenza) < new Date(form.data_inizio)) {
       return 'La data di scadenza non può essere precedente alla data di inizio.'
     }
+
+    if (
+      form.seconda_data_scadenza &&
+      new Date(form.seconda_data_scadenza) <= new Date(form.data_scadenza)
+    ) {
+      return 'La seconda data di scadenza deve essere successiva alla prima data di scadenza.'
+    }
+
     return ''
   }
 
@@ -198,6 +208,18 @@ export default function FormIncarico({
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
+          <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Seconda data scadenza
+          </label>
+          <input
+            type="date"
+            name="seconda_data_scadenza"
+            value={form.seconda_data_scadenza}
+            onChange={(e) => upd('seconda_data_scadenza', e.target.value)}
+            className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
         </div>
       </section>
 

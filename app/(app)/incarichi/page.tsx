@@ -27,7 +27,7 @@ export default async function IncarichiPage({
   // 1. Leggi tutti gli incarichi (query semplice, niente join ambigui)
   let query = supabase
     .from('incarichi')
-    .select('id, tipo, stato, data_inizio, data_scadenza, prezzo, esclusivo, data_chiusura, motivo_chiusura, valutazione_id, cliente_id, immobile_id')
+    .select('id, tipo, stato, data_inizio, data_scadenza, seconda_data_scadenza, prezzo, esclusivo, data_chiusura, motivo_chiusura, valutazione_id, cliente_id, immobile_id')
     .order('data_scadenza', { ascending: true })
 
   if (params.tipo) query = query.eq('tipo', params.tipo)
@@ -182,15 +182,36 @@ export default async function IncarichiPage({
                     </td>
                     <td className="px-5 py-3">
                       {isAttivo ? (
-                        <span
-                          className={`text-xs px-2 py-1 rounded whitespace-nowrap ${coloreScadenza(giorni)}`}
-                        >
-                          {formatData(i.data_scadenza)}
-                          {giorni >= 0 && giorni <= 90 && (
-                            <span className="ml-1">({giorni}gg)</span>
+                        <div className="flex flex-col gap-1.5 items-start">
+                          <span
+                            className={`text-xs px-2 py-1 rounded whitespace-nowrap ${coloreScadenza(giorni)}`}
+                          >
+                            1ª: {formatData(i.data_scadenza)}
+                            {giorni >= 0 && giorni <= 90 && (
+                              <span className="ml-1">({giorni}gg)</span>
+                            )}
+                            {giorni < 0 && <span className="ml-1">(scaduto)</span>}
+                          </span>
+
+                          {i.seconda_data_scadenza && (
+                            <span
+                              className={`text-xs px-2 py-1 rounded whitespace-nowrap ${coloreScadenza(
+                                giorniAllaScadenza(i.seconda_data_scadenza)
+                              )}`}
+                            >
+                              2ª: {formatData(i.seconda_data_scadenza)}
+                              {giorniAllaScadenza(i.seconda_data_scadenza) >= 0 &&
+                                giorniAllaScadenza(i.seconda_data_scadenza) <= 90 && (
+                                  <span className="ml-1">
+                                    ({giorniAllaScadenza(i.seconda_data_scadenza)}gg)
+                                  </span>
+                                )}
+                              {giorniAllaScadenza(i.seconda_data_scadenza) < 0 && (
+                                <span className="ml-1">(scaduto)</span>
+                              )}
+                            </span>
                           )}
-                          {giorni < 0 && <span className="ml-1">(scaduto)</span>}
-                        </span>
+                        </div>
                       ) : (
                         <span className="text-xs text-slate-400">
                           {i.data_chiusura ? formatData(i.data_chiusura) : '—'}

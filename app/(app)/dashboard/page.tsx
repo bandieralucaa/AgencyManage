@@ -112,15 +112,26 @@ const oggi = new Date()
 const novantaGiorni = new Date(oggi.getTime() + 90 * 24 * 60 * 60 * 1000)
 const { data: scadenzeRaw } = await supabase
   .from('incarichi')
-  .select('id, tipo, data_scadenza, prezzo, esclusivo, valutazione_id')
+  .select('id, tipo, data_scadenza, seconda_data_scadenza, prezzo, esclusivo, valutazione_id')
   .eq('stato', 'attivo')
-  .gte('data_scadenza', oggi.toISOString().split('T')[0])
-  .lte('data_scadenza', novantaGiorni.toISOString().split('T')[0])
   .order('data_scadenza', { ascending: true })
-  .limit(10)
+  .limit(50)
+
+const scadenzeFiltrate = (scadenzeRaw || []).filter((s: any) => {
+  const prima = giorniAllaScadenza(s.data_scadenza)
+
+  const seconda = s.seconda_data_scadenza
+    ? giorniAllaScadenza(s.seconda_data_scadenza)
+    : null
+
+  return (
+    (prima >= 0 && prima <= 90) ||
+    (seconda !== null && seconda >= 0 && seconda <= 90)
+  )
+})
 
 const scadenze = await Promise.all(
-  (scadenzeRaw || []).map(async (s: any) => {
+  scadenzeFiltrate.map(async (s: any) => {
     let immobile = null
     if (s.valutazione_id) {
       const { data: v } = await supabase
@@ -133,6 +144,31 @@ const scadenze = await Promise.all(
     return { ...s, immobile }
   })
 )
+
+const avvisiScadenza = scadenze.filter((s: any) => {
+  const giorniPrima = giorniAllaScadenza(s.data_scadenza)
+  const giorniSeconda = s.seconda_data_scadenza
+    ? giorniAllaScadenza(s.seconda_data_scadenza)
+    : null
+
+  return (
+    (giorniPrima >= 0 && giorniPrima <= 30) ||
+    (giorniSeconda !== null && giorniSeconda >= 0 && giorniSeconda <= 30)
+  )
+})
+
+const avvisiScadenzaConGiorni = avvisiScadenza.map((s: any) => {
+  const giorniPrima = giorniAllaScadenza(s.data_scadenza)
+  const giorniSeconda = s.seconda_data_scadenza
+    ? giorniAllaScadenza(s.seconda_data_scadenza)
+    : null
+
+  return {
+    ...s,
+    giorniPrima,
+    giorniSeconda,
+  }
+})
 
 // Compleanni (prossimi 30 giorni)
   const { data: tuttiClienti } = await supabase
@@ -308,7 +344,22 @@ return (
                 (new Date(s.data_scadenza).getTime() - oggi.getTime()) /
                   (1000 * 60 * 60 * 24)
               )
-              const urgente = giorni <= 30
+              const urgente =
+              giorni <= 30 ||
+              (s.seconda_data_scadenza &&
+                giorniAllaScadenza(s.seconda_data_scadenza) <= 30)
+             const avviso = avvisiScadenzaConGiorni.find(
+                (avviso: any) => avviso.id === s.id
+              )
+
+              const avvisoPrimaScadenza =
+                avviso && avviso.giorniPrima >= 0 && avviso.giorniPrima <= 30
+
+              const avvisoSecondaScadenza =
+                avviso &&
+                avviso.giorniSeconda !== null &&
+                avviso.giorniSeconda >= 0 &&
+                avviso.giorniSeconda <= 30
               return (
                 <li
                   key={s.id}
@@ -323,16 +374,25 @@ return (
                       {s.esclusivo && ' · Esclusiva'}
                       {s.prezzo && ` · € ${Number(s.prezzo).toLocaleString('it-IT')}`}
                     </div>
+                      {avvisoPrimaScadenza && (
+                      <div className="text-xs text-amber-400 mt-2">
+                        ⚠️ La prima scadenza è vicina: contattare il proprietario e fissare
+                        un appuntamento in ufficio per discutere l'andamento della vendita.
+                      </div>
+                    )}
+                    {avvisoSecondaScadenza && (
+                      <div className="text-xs text-amber-400 mt-2">
+                        ⚠️ La seconda scadenza è vicina: contattare il proprietario e fissare
+                        un appuntamento in ufficio per discutere l'andamento della vendita.
+                      </div>
+                    )}
                   </div>
-                  <div
-                    className={`text-xs font-medium px-2 py-1 rounded whitespace-nowrap ${
-                      urgente
-                        ? 'bg-red-500/20 text-red-400'
-                        : 'bg-slate-700 text-slate-300'
-                    }`}
-                  >
-                    {formatData(s.data_scadenza)}
-                  </div>
+                  <div className="text-xs font-medium px-2 py-1 rounded whitespace-nowrap bg-slate-700 text-slate-300">
+                  <div>1ª: {formatData(s.data_scadenza)}</div>
+                  {s.seconda_data_scadenza && (
+                    <div className="mt-1">2ª: {formatData(s.seconda_data_scadenza)}</div>
+                  )}
+                </div>
                 </li>
               )
             })}
