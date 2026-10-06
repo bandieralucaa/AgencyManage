@@ -203,17 +203,56 @@ export default function FormNotizia({
             </select>
           </div>
 
-          {/* PROPRIETARI - TEST TEMPORANEO */}
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Proprietari
-            </label>
+          {/* PROPRIETARI */}
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Proprietari
+          </label>
 
-            <div className="text-slate-400">
-              Test proprietari
-            </div>
+          <div className="space-y-2">
+            {clienti.map((cliente) => {
+              const selezionato = proprietari.includes(cliente.id)
+
+              return (
+                <label
+                  key={cliente.id}
+                  className="flex items-center gap-3 text-sm text-white cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selezionato}
+                    disabled={!selezionato && proprietari.length >= 2}
+                    onChange={() => {
+                      if (selezionato) {
+                        setProprietari((prev) =>
+                          prev.filter((id) => id !== cliente.id)
+                        )
+                      } else if (proprietari.length < 2) {
+                        setProprietari((prev) => [...prev, cliente.id])
+                      }
+                    }}
+                    className="w-4 h-4"
+                  />
+
+                  {cliente.label}
+                </label>
+              )
+            })}
           </div>
 
+          <p className="text-xs text-slate-500 mt-1">
+            Se l&apos;immobile è cointestato, seleziona entrambi i proprietari.
+          </p>
+
+          {proprietari.map((id) => (
+            <input
+              key={id}
+              type="hidden"
+              name="proprietari"
+              value={id}
+            />
+          ))}
+        </div>
         </div>
       </section>
 
