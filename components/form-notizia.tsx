@@ -17,8 +17,11 @@ export default function FormNotizia({
 }) {
   const supabase = createClient()
 
-  const [clienti, setClienti] = useState<Opzione[]>([])
-  const [immobili, setImmobili] = useState<Opzione[]>([])
+const [clienti, setClienti] = useState<Opzione[]>([
+  { id: 'test-1', label: 'Cliente Test 1' },
+  { id: 'test-2', label: 'Cliente Test 2' },
+])  
+const [immobili, setImmobili] = useState<Opzione[]>([])
 
   const [proprietari, setProprietari] = useState<string[]>(
     notizia?.proprietari?.map((p: any) => p.cliente_id) ?? []
