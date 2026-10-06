@@ -9,6 +9,7 @@ export async function creaImmobileProposto(data: {
   cliente_id?: string
   esito: string
   motivo_rifiuto?: string
+  data_proposta: string
 }): Promise<{ ok: boolean; errore?: string }> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -21,6 +22,7 @@ export async function creaImmobileProposto(data: {
     agente_id: user.id,
     esito: data.esito,
     motivo_rifiuto: data.motivo_rifiuto || null,
+    data_proposta: data.data_proposta,
   })
 
   if (error) return { ok: false, errore: error.message }
@@ -31,7 +33,11 @@ export async function creaImmobileProposto(data: {
 export async function aggiornaImmobileProposto(
   id: string,
   richiestaId: string,
-  data: { esito: string; motivo_rifiuto?: string }
+  data: {
+    esito: string
+    motivo_rifiuto?: string
+    data_proposta: string
+  }
 ): Promise<{ ok: boolean; errore?: string }> {
   const supabase = await createClient()
 
@@ -40,7 +46,9 @@ export async function aggiornaImmobileProposto(
     .update({
       esito: data.esito,
       motivo_rifiuto: data.motivo_rifiuto || null,
+      data_proposta: data.data_proposta,
     })
+    .eq('id', id)
 
   if (error) return { ok: false, errore: error.message }
   revalidatePath(`/richieste/${richiestaId}`)

@@ -16,6 +16,7 @@ type ImmobileProposto = {
   immobile_id: string
   esito: string
   motivo_rifiuto: string | null
+  data_proposta: string | null
   immobili?:
     | { indirizzo: string; civico: string | null; comune: string }
     | { indirizzo: string; civico: string | null; comune: string }[]
@@ -49,6 +50,7 @@ export default function SezioneImmobiliProposti({
     immobile_id: '',
     esito: 'piace',
     motivo_rifiuto: '',
+    data_proposta: '',
   })
 
   useEffect(() => {
@@ -87,7 +89,12 @@ export default function SezioneImmobiliProposti({
   }, [supabase])
 
   function resetForm() {
-    setForm({ immobile_id: '', esito: 'piace', motivo_rifiuto: '' })
+    setForm({
+      immobile_id: '',
+      esito: 'piace',
+      motivo_rifiuto: '',
+      data_proposta: '',
+    })
     setModificaId(null)
     setErrore('')
   }
@@ -102,6 +109,7 @@ export default function SezioneImmobiliProposti({
       immobile_id: p.immobile_id,
       esito: p.esito,
       motivo_rifiuto: p.motivo_rifiuto || '',
+     data_proposta: p.data_proposta || '',
     })
     setModificaId(p.id)
     setModaleAperta(true)
@@ -117,6 +125,10 @@ export default function SezioneImmobiliProposti({
       setErrore('Seleziona un immobile')
       return
     }
+    if (!form.data_proposta) {
+  setErrore('Inserisci la data della proposta')
+  return
+}
     if (form.esito === 'non_piace' && !form.motivo_rifiuto.trim()) {
       setErrore('Inserisci il motivo per cui non piace')
       return
@@ -129,6 +141,7 @@ export default function SezioneImmobiliProposti({
       ? await aggiornaImmobileProposto(modificaId, richiestaId, {
           esito: form.esito,
           motivo_rifiuto: form.motivo_rifiuto,
+          data_proposta: form.data_proposta,
         })
       : await creaImmobileProposto({
           richiesta_id: richiestaId,
@@ -136,6 +149,7 @@ export default function SezioneImmobiliProposti({
           cliente_id: clienteId || undefined,
           esito: form.esito,
           motivo_rifiuto: form.motivo_rifiuto,
+          data_proposta: form.data_proposta,
         })
 
     setSalvando(false)
@@ -198,6 +212,11 @@ export default function SezioneImmobiliProposti({
                         <span className={`text-xs px-2 py-0.5 rounded ${esito.colore}`}>
                           {esito.label}
                         </span>
+                        {p.data_proposta && (
+  <span className="text-xs text-slate-400">
+    📅 {new Date(p.data_proposta + 'T00:00:00').toLocaleDateString('it-IT')}
+  </span>
+)}
                       </div>
                       {p.motivo_rifiuto && (
                         <div className="text-xs text-slate-400 mt-1">
@@ -289,6 +308,18 @@ export default function SezioneImmobiliProposti({
                   </select>
                 </div>
               )}
+
+              <div>
+  <label className="block text-sm font-medium text-slate-300 mb-1">
+    Data proposta *
+  </label>
+  <input
+    type="date"
+    value={form.data_proposta}
+    onChange={(e) => setForm({ ...form, data_proposta: e.target.value })}
+    className="w-full px-3 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+  />
+</div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">
