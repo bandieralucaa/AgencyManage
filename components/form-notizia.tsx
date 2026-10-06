@@ -15,7 +15,7 @@ export default function FormNotizia({
   notizia?: any
   action: (formData: FormData) => void | Promise<void>
 }) {
-  const [supabase] = useState(() => createClient())
+  const supabase = createClient()
 
   const [clienti, setClienti] = useState<Opzione[]>([])
   const [immobili, setImmobili] = useState<Opzione[]>([])
@@ -79,33 +79,11 @@ export default function FormNotizia({
     }
 
     carica()
-  }, [supabase])
+  }, [])
 
   const mostraMotivoChiusura = form.stato.startsWith('chiusa_')
   const isImmobileVuoto = form.tipo_notizia === 'immobile_vuoto'
   const isImmobileVendesi = form.tipo_notizia === 'immobile_vendesi'
-
-  const clientiFiltrati = clienti.filter((c) =>
-    c.label.toLowerCase().includes(cercaProprietario.toLowerCase())
-  )
-
-  function toggleProprietario(id: string) {
-    setProprietari((prev) => {
-      if (prev.includes(id)) {
-        return prev.filter((x) => x !== id)
-      }
-
-      if (prev.length >= 2) {
-        return prev
-      }
-
-      return [...prev, id]
-    })
-  }
-
-  function rimuoviProprietario(id: string) {
-    setProprietari((prev) => prev.filter((x) => x !== id))
-  }
 
   return (
     <form action={action} className="space-y-8">
@@ -225,144 +203,17 @@ export default function FormNotizia({
             </select>
           </div>
 
-          {/* PROPRIETARI */}
+          {/* PROPRIETARI - TEST TEMPORANEO */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Proprietari
             </label>
 
-            {/* PROPRIETARI SELEZIONATI */}
-            {proprietari.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-2">
-                {proprietari.map((id) => {
-                  const cliente = clienti.find((c) => c.id === id)
-
-                  if (!cliente) return null
-
-                  return (
-                    <div
-                      key={id}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 border border-blue-500/40 rounded-lg text-sm text-blue-300"
-                    >
-                      <span>{cliente.label}</span>
-
-                      <button
-                        type="button"
-                        onClick={() => rimuoviProprietario(id)}
-                        className="text-blue-300 hover:text-white"
-                        title="Rimuovi proprietario"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-
-            {/* SELECT */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setMostraProprietari((prev) => !prev)}
-                className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-left text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {proprietari.length >= 2
-                  ? 'Massimo 2 proprietari selezionati'
-                  : 'Seleziona proprietario...'}
-              </button>
-
-              {mostraProprietari && (
-                <div className="absolute z-50 mt-2 w-full bg-slate-900 border border-slate-600 rounded-lg shadow-xl overflow-hidden">
-
-                  {/* RICERCA */}
-                  <div className="p-3 border-b border-slate-700">
-                    <input
-                      type="text"
-                      value={cercaProprietario}
-                      onChange={(e) =>
-                        setCercaProprietario(e.target.value)
-                      }
-                      placeholder="🔍 Cerca cliente..."
-                      autoFocus
-                      className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-
-                  {/* LISTA CLIENTI */}
-                  <div className="max-h-64 overflow-y-auto">
-
-                    {clientiFiltrati.length === 0 && (
-                      <div className="px-4 py-3 text-sm text-slate-500">
-                        Nessun cliente trovato.
-                      </div>
-                    )}
-
-                    {clientiFiltrati.map((c) => {
-                      const selezionato = proprietari.includes(c.id)
-                      const disabilitato =
-                        !selezionato && proprietari.length >= 2
-
-                      return (
-                        <label
-                          key={c.id}
-                          className={`flex items-center gap-3 px-4 py-3 transition-colors ${
-                            disabilitato
-                              ? 'opacity-40 cursor-not-allowed'
-                              : 'hover:bg-slate-800 cursor-pointer'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selezionato}
-                            disabled={disabilitato}
-                            onChange={() => toggleProprietario(c.id)}
-                            className="w-4 h-4"
-                          />
-
-                          <span className="text-white">
-                            {c.label}
-                          </span>
-                        </label>
-                      )
-                    })}
-                  </div>
-
-                  {/* FOOTER */}
-                  <div className="flex items-center justify-between px-4 py-2 border-t border-slate-700">
-                    <span className="text-xs text-slate-500">
-                      {proprietari.length}/2 proprietari selezionati
-                    </span>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMostraProprietari(false)
-                        setCercaProprietario('')
-                      }}
-                      className="text-sm text-blue-400 hover:text-blue-300"
-                    >
-                      Chiudi
-                    </button>
-                  </div>
-                </div>
-              )}
+            <div className="text-slate-400">
+              Test proprietari
             </div>
-
-            <p className="text-xs text-slate-500 mt-1">
-              Se l&apos;immobile è cointestato, seleziona entrambi i proprietari.
-            </p>
-
-            {/* VALORI INVIATI AL SERVER */}
-            {proprietari.map((id) => (
-              <input
-                key={id}
-                type="hidden"
-                name="proprietari"
-                value={id}
-              />
-            ))}
           </div>
+
         </div>
       </section>
 
@@ -406,7 +257,7 @@ export default function FormNotizia({
               onChange={(e) =>
                 upd('motivo_chiusura', e.target.value)
               }
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white"
               placeholder="Dettagli sulla chiusura della notizia..."
             />
           </div>
@@ -429,6 +280,7 @@ export default function FormNotizia({
           {notizia?.id ? 'Salva modifiche' : 'Crea notizia'}
         </button>
       </div>
+
     </form>
   )
 }
