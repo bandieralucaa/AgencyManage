@@ -15,7 +15,9 @@ export default function FormNotizia({
   const supabase = createClient()
   const [clienti, setClienti] = useState<Opzione[]>([])
   const [immobili, setImmobili] = useState<Opzione[]>([])
-
+  const [proprietari, setProprietari] = useState<string[]>(
+    notizia?.proprietari?.map((p: any) => p.cliente_id) ?? []
+  )
   const [form, setForm] = useState({
     tipo_notizia: notizia?.tipo_notizia ?? 'immobile_vuoto',
     immobile_id: notizia?.immobile_id ?? '',
@@ -153,26 +155,56 @@ export default function FormNotizia({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Cliente collegato (opzionale)
-            </label>
-            <select
-              name="cliente_id"
-              value={form.cliente_id}
-              onChange={(e) => upd('cliente_id', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">— Nessuno —</option>
-              {clienti.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-slate-500 mt-1">
-              Es. il proprietario dell&apos;immobile, se lo conosci già
-            </p>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Proprietari (massimo 2)
+          </label>
+
+          <div className="space-y-2">
+            {clienti.map((c) => {
+              const selezionato = proprietari.includes(c.id)
+
+              return (
+                <label
+                  key={c.id}
+                  className="flex items-center gap-3 p-3 bg-slate-900 border border-slate-600 rounded-lg cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selezionato}
+                    disabled={!selezionato && proprietari.length >= 2}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setProprietari((prev) => [...prev, c.id])
+                      } else {
+                        setProprietari((prev) =>
+                          prev.filter((id) => id !== c.id)
+                        )
+                      }
+                    }}
+                    className="w-4 h-4"
+                  />
+
+                  <span className="text-white">
+                    {c.label}
+                  </span>
+                </label>
+              )
+            })}
           </div>
+
+          <p className="text-xs text-slate-500 mt-1">
+            Se l&apos;immobile è cointestato, seleziona entrambi i proprietari.
+          </p>
+
+          {proprietari.map((id) => (
+            <input
+              key={id}
+              type="hidden"
+              name="proprietari"
+              value={id}
+            />
+          ))}
+        </div>
         </div>
       </section>
 

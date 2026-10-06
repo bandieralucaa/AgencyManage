@@ -26,21 +26,47 @@ export async function creaNotizia(formData: FormData) {
 
   if (!immobile) throw new Error('Immobile non trovato')
 
-  const { error } = await supabase.from('notizie').insert({
-    tipo_notizia: formData.get('tipo_notizia') as string,
-    immobile_id: immobileId,
-    agente_id: user.id,
-    cliente_id: stringOrNull(formData.get('cliente_id')),
-    indirizzo: immobile.indirizzo,
-    civico: immobile.civico,
-    frazione: immobile.frazione,
-    comune: immobile.comune,
-    tipo: formData.get('tipo') as string,
-    stato: (formData.get('stato') as string) || 'aperta',
-    motivo_chiusura: stringOrNull(formData.get('motivo_chiusura')),
-  })
+  const { data: nuovaNotizia, error } = await supabase
+    .from('notizie')
+    .insert({
+      tipo_notizia: formData.get('tipo_notizia') as string,
+      immobile_id: immobileId,
+      agente_id: user.id,
+      cliente_id: stringOrNull(formData.get('cliente_id')),
+      indirizzo: immobile.indirizzo,
+      civico: immobile.civico,
+      frazione: immobile.frazione,
+      comune: immobile.comune,
+      tipo: formData.get('tipo') as string,
+      stato: (formData.get('stato') as string) || 'aperta',
+      motivo_chiusura: stringOrNull(formData.get('motivo_chiusura')),
+    })
+    .select('id')
+    .single()
 
   if (error) throw new Error(error.message)
+
+  // Salva i proprietari associati alla notizia
+  const proprietari = formData.getAll('proprietari')
+
+  const proprietariValidi = proprietari
+    .map((id) => String(id))
+    .filter(Boolean)
+    .slice(0, 2)
+
+  if (proprietariValidi.length > 0) {
+    const { error: proprietariError } = await supabase
+      .from('notizie_proprietari')
+      .insert(
+        proprietariValidi.map((clienteId) => ({
+          notizia_id: nuovaNotizia.id,
+          cliente_id: clienteId,
+        }))
+      )
+
+    if (proprietariError) throw new Error(proprietariError.message)
+  }
+
   revalidatePath('/notizie')
   redirect('/notizie')
 }
