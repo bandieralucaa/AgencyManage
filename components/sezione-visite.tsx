@@ -146,7 +146,7 @@ note: '',
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [immobili])
+}, [immobili, searchParams])
 
 function resetForm() {
 setForm({
