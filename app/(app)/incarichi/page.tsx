@@ -27,7 +27,7 @@ export default async function IncarichiPage({
   // 1. Leggi tutti gli incarichi (query semplice, niente join ambigui)
   let query = supabase
     .from('incarichi')
-    .select('id, tipo, stato, data_inizio, data_scadenza, prezzo, esclusivo, data_chiusura, motivo_chiusura, valutazione_id, cliente_id')
+    .select('id, tipo, stato, data_inizio, data_scadenza, prezzo, esclusivo, data_chiusura, motivo_chiusura, valutazione_id, cliente_id, immobile_id')
     .order('data_scadenza', { ascending: true })
 
   if (params.tipo) query = query.eq('tipo', params.tipo)
@@ -60,12 +60,15 @@ export default async function IncarichiPage({
         cliente = c
       }
 
-      const { data: i } = await supabase
-        .from('immobili')
-        .select('id, indirizzo, civico, comune')
-        .eq('incarico_id', inc.id)
-        .maybeSingle()
-      immobilePortafoglio = i
+      if (inc.immobile_id) {
+        const { data: i } = await supabase
+          .from('immobili')
+          .select('id, indirizzo, civico, comune')
+          .eq('id', inc.immobile_id)
+          .maybeSingle()
+
+        immobilePortafoglio = i
+      }
 
       return { ...inc, valutazione, cliente, immobilePortafoglio }
     })
