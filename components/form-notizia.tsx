@@ -15,7 +15,7 @@ export default function FormNotizia({
   notizia?: any
   action: (formData: FormData) => void | Promise<void>
 }) {
-  const supabase = createClient()
+  const [supabase] = useState(() => createClient())
 
   const [clienti, setClienti] = useState<Opzione[]>([])
   const [immobili, setImmobili] = useState<Opzione[]>([])
