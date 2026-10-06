@@ -122,15 +122,29 @@ export async function accettaProposta(id: string) {
       .eq('id', proposta.richiesta_id)
   }
 
-  // 3. Chiudi l'incarico (se collegato)
-  if (proposta.incarico_id) {
+  // 3. Metti l'incarico in stato "in_trattativa"
+  //    Cerca l'incarico tramite:
+  //    a) proposta.incarico_id (se valorizzato)
+  //    b) oppure immobili.incarico_id
+  let incaricoId = proposta.incarico_id
+
+  if (!incaricoId && proposta.immobile_id) {
+    const { data: immobile } = await supabase
+      .from('immobili')
+      .select('incarico_id')
+      .eq('id', proposta.immobile_id)
+      .maybeSingle()
+    incaricoId = immobile?.incarico_id || null
+  }
+
+  if (incaricoId) {
     await supabase
       .from('incarichi')
       .update({
-        stato: 'concluso_bene',
-        data_chiusura: new Date().toISOString().split('T')[0],
+       stato: 'in_trattativa',
+       data_chiusura: null,
       })
-      .eq('id', proposta.incarico_id)
+      .eq('id', incaricoId)
   }
 
   revalidatePath('/proposte')

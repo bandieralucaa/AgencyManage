@@ -46,6 +46,7 @@ export default function RicercaIncarichi() {
       >
         <option value="">Tutti gli stati</option>
         <option value="attivo">🟢 Attivo</option>
+        <option value="in_trattativa">🤝 In trattativa</option>
         <option value="concluso_bene">✅ Concluso bene</option>
         <option value="concluso_male">❌ Concluso male</option>
       </select>

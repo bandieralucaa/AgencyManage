@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import InputPrezzo from './input-prezzo'
 
@@ -26,15 +27,17 @@ export default function FormProposta({
   action: (formData: FormData) => void | Promise<void>
 }) {
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const immobileDaUrl = searchParams.get('immobile_id') || immobilePreselezionato || ''
+  const richiestaDaUrl = searchParams.get('richiesta_id') || richiestaPreselezionata || ''
   const [clienti, setClienti] = useState<Opzione[]>([])
   const [immobili, setImmobili] = useState<Opzione[]>([])
   const [richieste, setRichieste] = useState<Opzione[]>([])
 
   const [form, setForm] = useState({
-    immobile_id: proposta?.immobile_id ?? immobilePreselezionato ?? '',
-    richiesta_id: proposta?.richiesta_id ?? richiestaPreselezionata ?? '',
+    immobile_id: proposta?.immobile_id ?? immobileDaUrl ?? '',
+    richiesta_id: proposta?.richiesta_id ?? richiestaDaUrl ?? '',
     cliente_id: proposta?.cliente_id ?? '',
-    data_visita: proposta?.data_visita ?? '',
     data_proposta: proposta?.data_proposta ?? new Date().toISOString().split('T')[0],
     importo_proposto: proposta?.importo_proposto ?? '',
     stato: proposta?.stato ?? 'in_corso',
@@ -47,6 +50,16 @@ export default function FormProposta({
 
   useEffect(() => {
     async function carica() {
+      let clienteDaRichiesta = ''
+      if (richiestaDaUrl) {
+        const { data: richiesta } = await supabase
+          .from('richieste')
+          .select('cliente_id')
+          .eq('id', richiestaDaUrl)
+          .maybeSingle()
+
+        clienteDaRichiesta = richiesta?.cliente_id || ''
+      } 
       const [c, i, r] = await Promise.all([
         supabase
           .from('clienti')
@@ -69,6 +82,12 @@ export default function FormProposta({
           c.data.map((x) => ({ id: x.id, label: `${x.cognome} ${x.nome}` }))
         )
       }
+      if (clienteDaRichiesta && !proposta?.cliente_id) {
+  setForm((prev) => ({
+    ...prev,
+    cliente_id: clienteDaRichiesta,
+  }))
+}
       if (i.data) {
         setImmobili(
           i.data.map((x) => ({
@@ -162,18 +181,6 @@ export default function FormProposta({
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">Dettagli proposta</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Data visita
-            </label>
-            <input
-              type="date"
-              name="data_visita"
-              value={form.data_visita}
-              onChange={(e) => upd('data_visita', e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Data proposta

@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import EliminaRichiestaButton from './elimina-button'
-import SezioneProposteVisita from '@/components/sezione-proposte-visita'
+import SezioneImmobiliProposti from '@/components/sezione-immobili-proposti'
 import SezioneVisite from '@/components/sezione-visite'
 
 const STATI: Record<string, { label: string; colore: string }> = {
@@ -59,36 +59,21 @@ function calcolaMatch(richiesta: any, immobile: any) {
   }
 
   if (richiesta.locali_min) {
-    criteri.push({
-      nome: 'Locali min',
-      ok: (immobile.vani || 0) >= richiesta.locali_min,
-    })
+    criteri.push({ nome: 'Locali min', ok: (immobile.vani || 0) >= richiesta.locali_min })
   }
   if (richiesta.locali_max) {
-    criteri.push({
-      nome: 'Locali max',
-      ok: (immobile.vani || 0) <= richiesta.locali_max,
-    })
-  }
-
-  if (richiesta.bagni_min) {
-    criteri.push({
-      nome: 'Bagni min',
-      ok: (immobile.bagni || 0) >= richiesta.bagni_min,
-    })
+    criteri.push({ nome: 'Locali max', ok: (immobile.vani || 0) <= richiesta.locali_max })
   }
 
   if (richiesta.mq_min) {
-    criteri.push({
-      nome: 'Mq min',
-      ok: (immobile.metri_quadrati || 0) >= richiesta.mq_min,
-    })
+    criteri.push({ nome: 'Mq min', ok: (immobile.metri_quadrati || 0) >= richiesta.mq_min })
   }
   if (richiesta.mq_max) {
-    criteri.push({
-      nome: 'Mq max',
-      ok: (immobile.metri_quadrati || 0) <= richiesta.mq_max,
-    })
+    criteri.push({ nome: 'Mq max', ok: (immobile.metri_quadrati || 0) <= richiesta.mq_max })
+  }
+
+  if (richiesta.bagni_min) {
+    criteri.push({ nome: 'Bagni min', ok: (immobile.bagni || 0) >= richiesta.bagni_min })
   }
 
   if (richiesta.stato_immobile) {
@@ -123,7 +108,6 @@ function calcolaMatch(richiesta: any, immobile: any) {
 
   const soddisfatti = criteri.filter((c) => c.ok).length
   const punteggio = Math.round((soddisfatti / criteri.length) * 100)
-
   return { punteggio, dettagli: criteri, totale: criteri.length }
 }
 
@@ -144,61 +128,24 @@ export default async function RichiestaPage({
 
   const { data: richiesta } = await supabase
     .from('richieste')
-    .select(`*, clienti (id, nome, cognome, telefono, email)`)
+    .select('*')
     .eq('id', id)
     .single()
 
   if (!richiesta) notFound()
 
-  // Proposte di visita
-  const { data: proposteVisita } = await supabase
-    .from('proposte_visita')
-    .select('id, stato, data_proposta, data_risposta, motivo_rifiuto, immobile_id, immobili (indirizzo, civico, comune)')
-    .eq('richiesta_id', id)
-    .order('created_at', { ascending: false })
-
-  const proposteVisitaNormalizzate = (proposteVisita || []).map((p: any) => {
-    const immobile = Array.isArray(p.immobili) ? p.immobili[0] ?? null : p.immobili ?? null
-
-    return {
-      ...p,
-      immobili: immobile
-        ? {
-            indirizzo: immobile.indirizzo ?? '',
-            civico: immobile.civico ?? null,
-            comune: immobile.comune ?? '',
-          }
-        : {
-            indirizzo: '',
-            civico: null,
-            comune: '',
-          },
-    }
-  })
-
-  // Visite effettuate per questa richiesta
-  const { data: visite } = await supabase
-    .from('visite')
-    .select('id, data_visita, note, immobili (indirizzo, civico, comune), clienti (nome, cognome)')
-    .eq('richiesta_id', id)
-    .order('data_visita', { ascending: false })
-
-  const { data: proposte } = await supabase
-    .from('proposte')
-    .select(`
-      id, stato, data_visita, data_proposta, importo_proposto,
-      immobili (id, indirizzo, civico, comune)
-    `)
-    .eq('richiesta_id', id)
-    .order('created_at', { ascending: false })
-
-  const cli = Array.isArray(richiesta.clienti) ? richiesta.clienti[0] : richiesta.clienti
-  const stato = STATI[richiesta.stato] || {
-    label: richiesta.stato,
-    colore: 'bg-slate-700 text-slate-300',
+  // Letture separate
+  let cliente = null
+  if (richiesta.cliente_id) {
+    const { data } = await supabase
+      .from('clienti')
+      .select('id, nome, cognome, telefono, email')
+      .eq('id', richiesta.cliente_id)
+      .maybeSingle()
+    cliente = data
   }
 
-  // 1. Prendi solo gli immobili che hanno un incarico ATTIVO
+  // Match: solo immobili con incarico ATTIVO (esclude in_trattativa e conclusi)
   const { data: incarichiAttivi } = await supabase
     .from('incarichi')
     .select('immobile_id')
@@ -209,35 +156,52 @@ export default async function RichiestaPage({
     .map((i) => i.immobile_id)
     .filter(Boolean) as string[]
 
-  // 2. Carica solo quegli immobili
-  const { data: immobili } =
-    immobiliIds.length > 0
-      ? await supabase
-          .from('immobili')
-          .select(
-            'id, indirizzo, civico, frazione, comune, tipo, categoria, metri_quadrati, vani, camere, bagni, stato, riscaldamento, prezzo, prezzo_affitto'
-          )
-          .eq('attivo', true)
-          .in('id', immobiliIds)
-      : { data: [] }
+  let immobili: any[] = []
+  if (immobiliIds.length > 0) {
+    const { data } = await supabase
+      .from('immobili')
+      .select(
+        'id, indirizzo, civico, frazione, comune, tipo, categoria, metri_quadrati, vani, camere, bagni, stato, riscaldamento, prezzo, prezzo_affitto'
+      )
+      .eq('attivo', true)
+      .in('id', immobiliIds)
+    immobili = data || []
+  }
 
-  const matches = (immobili || [])
+  const matches = immobili
     .map((imm) => ({ immobile: imm, ...calcolaMatch(richiesta, imm) }))
     .filter((m) => m.totale > 0 && m.punteggio >= 30)
     .sort((a, b) => b.punteggio - a.punteggio)
     .slice(0, 20)
 
+  // Immobili proposti
+  const { data: proposti } = await supabase
+    .from('immobili_proposti')
+    .select('*, immobili (indirizzo, civico, comune)')
+    .eq('richiesta_id', id)
+    .order('created_at', { ascending: false })
+
+  // Visite effettuate
+  const { data: visite } = await supabase
+    .from('visite')
+    .select('*, immobili (indirizzo, civico)')
+    .eq('richiesta_id', id)
+    .order('data_visita', { ascending: false })
+
+  const stato = STATI[richiesta.stato] || {
+    label: richiesta.stato,
+    colore: 'bg-slate-700 text-slate-300',
+  }
+
   function localiRange() {
-    if (richiesta.locali_min && richiesta.locali_max)
-      return `${richiesta.locali_min} - ${richiesta.locali_max} locali`
+    if (richiesta.locali_min && richiesta.locali_max) return `${richiesta.locali_min} - ${richiesta.locali_max} locali`
     if (richiesta.locali_min) return `da ${richiesta.locali_min} locali`
     if (richiesta.locali_max) return `fino a ${richiesta.locali_max} locali`
     return null
   }
 
   function mqRange() {
-    if (richiesta.mq_min && richiesta.mq_max)
-      return `${richiesta.mq_min} - ${richiesta.mq_max} mq`
+    if (richiesta.mq_min && richiesta.mq_max) return `${richiesta.mq_min} - ${richiesta.mq_max} mq`
     if (richiesta.mq_min) return `da ${richiesta.mq_min} mq`
     if (richiesta.mq_max) return `fino a ${richiesta.mq_max} mq`
     return null
@@ -255,20 +219,16 @@ export default async function RichiestaPage({
         <div className="flex items-start justify-between gap-4 mt-2 flex-wrap">
           <div>
             <h1 className="text-3xl font-bold">
-              {cli ? `${cli.cognome} ${cli.nome}` : 'Richiesta'}
+              {cliente ? `${cliente.cognome} ${cliente.nome}` : 'Richiesta'}
             </h1>
             <div className="flex items-center gap-3 mt-2 text-sm text-slate-400 flex-wrap">
               <span>{CERCA_LABEL[richiesta.cerca] || richiesta.cerca || '—'}</span>
               <span>·</span>
-              <span className={`text-xs px-2 py-0.5 rounded ${stato.colore}`}>
-                {stato.label}
-              </span>
+              <span className={`text-xs px-2 py-0.5 rounded ${stato.colore}`}>{stato.label}</span>
               {richiesta.data_chiusura && (
                 <>
                   <span>·</span>
-                  <span>
-                    Chiusa il {new Date(richiesta.data_chiusura).toLocaleDateString('it-IT')}
-                  </span>
+                  <span>Chiusa il {new Date(richiesta.data_chiusura).toLocaleDateString('it-IT')}</span>
                 </>
               )}
             </div>
@@ -282,35 +242,35 @@ export default async function RichiestaPage({
             </Link>
             <EliminaRichiestaButton
               id={id}
-              nome={cli ? `${cli.cognome} ${cli.nome}` : 'questa richiesta'}
+              nome={cliente ? `${cliente.cognome} ${cliente.nome}` : 'questa richiesta'}
             />
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
-        {cli && (
+        {cliente && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h2 className="text-lg font-semibold mb-4">Cliente</h2>
             <dl className="space-y-3 text-sm">
               <div>
                 <dt className="text-slate-400">Nome</dt>
                 <dd className="text-white mt-0.5">
-                  <Link href={`/clienti/${cli.id}`} className="text-blue-400 hover:underline">
-                    {cli.cognome} {cli.nome}
+                  <Link href={`/clienti/${cliente.id}`} className="text-blue-400 hover:underline">
+                    {cliente.cognome} {cliente.nome}
                   </Link>
                 </dd>
               </div>
-              {cli.telefono && (
+              {cliente.telefono && (
                 <div>
                   <dt className="text-slate-400">Telefono</dt>
-                  <dd className="text-white mt-0.5">{cli.telefono}</dd>
+                  <dd className="text-white mt-0.5">{cliente.telefono}</dd>
                 </div>
               )}
-              {cli.email && (
+              {cliente.email && (
                 <div>
                   <dt className="text-slate-400">Email</dt>
-                  <dd className="text-white mt-0.5">{cli.email}</dd>
+                  <dd className="text-white mt-0.5">{cliente.email}</dd>
                 </div>
               )}
             </dl>
@@ -320,7 +280,7 @@ export default async function RichiestaPage({
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Cosa cerca</h2>
           <dl className="space-y-3 text-sm">
-                        {richiesta.frazioni_cercate && richiesta.frazioni_cercate.length > 0 && (
+            {richiesta.frazioni_cercate && richiesta.frazioni_cercate.length > 0 && (
               <div>
                 <dt className="text-slate-400">Località</dt>
                 <dd className="text-white mt-0.5">{richiesta.frazioni_cercate.join(', ')}</dd>
@@ -346,7 +306,7 @@ export default async function RichiestaPage({
                 <dd className="text-white mt-0.5">{mq}</dd>
               </div>
             )}
-                        {richiesta.bagni_min && (
+            {richiesta.bagni_min && (
               <div>
                 <dt className="text-slate-400">Bagni minimi</dt>
                 <dd className="text-white mt-0.5">{richiesta.bagni_min}</dd>
@@ -356,11 +316,9 @@ export default async function RichiestaPage({
               <div>
                 <dt className="text-slate-400">Budget</dt>
                 <dd className="text-white mt-0.5">
-                  {richiesta.prezzo_min &&
-                    `€ ${Number(richiesta.prezzo_min).toLocaleString('it-IT')}`}
+                  {richiesta.prezzo_min && `€ ${Number(richiesta.prezzo_min).toLocaleString('it-IT')}`}
                   {richiesta.prezzo_min && richiesta.prezzo_max && ' - '}
-                  {richiesta.prezzo_max &&
-                    `€ ${Number(richiesta.prezzo_max).toLocaleString('it-IT')}`}
+                  {richiesta.prezzo_max && `€ ${Number(richiesta.prezzo_max).toLocaleString('it-IT')}`}
                 </dd>
               </div>
             )}
@@ -381,7 +339,7 @@ export default async function RichiestaPage({
             {richiesta.tipo_stabile && (
               <div>
                 <dt className="text-slate-400">Tipo stabile</dt>
-                <dd className="text-white mt-0.5 capitalize">{richiesta.tipo_stabile}</dd>
+                <dd className="text-white mt-0.5 capitalize">{richiesta.tipo_stabile.replace('_', ' ')}</dd>
               </div>
             )}
             {richiesta.riscaldamento && (
@@ -395,10 +353,7 @@ export default async function RichiestaPage({
                 <dt className="text-slate-400">Accessori e pertinenze</dt>
                 <dd className="mt-1.5 flex flex-wrap gap-1.5">
                   {richiesta.accessori.map((a: string) => (
-                    <span
-                      key={a}
-                      className="text-xs px-2 py-0.5 rounded bg-blue-500/15 text-blue-300"
-                    >
+                    <span key={a} className="text-xs px-2 py-0.5 rounded bg-blue-500/15 text-blue-300">
                       {a}
                     </span>
                   ))}
@@ -423,9 +378,7 @@ export default async function RichiestaPage({
         {richiesta.motivo_chiusura && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 lg:col-span-2">
             <h2 className="text-lg font-semibold mb-4">Motivo chiusura</h2>
-            <p className="text-sm text-slate-300 whitespace-pre-wrap">
-              {richiesta.motivo_chiusura}
-            </p>
+            <p className="text-sm text-slate-300 whitespace-pre-wrap">{richiesta.motivo_chiusura}</p>
           </div>
         )}
 
@@ -437,90 +390,19 @@ export default async function RichiestaPage({
         )}
       </div>
 
+      {/* IMMOBILI PROPOSTI */}
+      <SezioneImmobiliProposti
+        richiestaId={id}
+        clienteId={richiesta.cliente_id}
+        proposti={proposti || []}
+      />
 
-      {/* PROPOSTE COLLEGATE */}
-      {proposte && proposte.length > 0 && (
-        <div className="mt-10">
-          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-            <h2 className="text-2xl font-bold">🤝 Proposte</h2>
-            <Link
-              href={`/proposte/nuovo?richiesta_id=${id}`}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-            >
-              + Registra proposta
-            </Link>
-          </div>
-          <div className="space-y-3">
-            {proposte.map((p: any) => {
-              const pImm = Array.isArray(p.immobili) ? p.immobili[0] : p.immobili
-              const statop = {
-                in_corso: 'In corso',
-                accettata: '✅ Accettata',
-                rifiutata: '❌ Rifiutata',
-                controproposta: '↔️ Controproposta',
-                ritirata: 'Ritirata',
-              }[p.stato as string] || p.stato
-              const colorip = {
-                in_corso: 'bg-amber-500/20 text-amber-400',
-                accettata: 'bg-emerald-500/20 text-emerald-400',
-                rifiutata: 'bg-red-500/20 text-red-400',
-                controproposta: 'bg-blue-500/20 text-blue-400',
-                ritirata: 'bg-slate-700 text-slate-400',
-              }[p.stato as string] || 'bg-slate-700 text-slate-300'
-              return (
-                <Link
-                  key={p.id}
-                  href={`/proposte/${p.id}`}
-                  className="block bg-slate-800 border border-slate-700 rounded-xl p-5 hover:border-slate-500 transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-white">
-                        {pImm ? `${pImm.indirizzo} ${pImm.civico}, ${pImm.comune}` : '—'}
-                      </div>
-                      <div className="text-sm text-slate-400 mt-1 flex gap-3 flex-wrap">
-                        {p.data_visita && (
-                          <span>
-                            Visita: {new Date(p.data_visita).toLocaleDateString('it-IT')}
-                          </span>
-                        )}
-                        {p.importo_proposto && (
-                          <span className="text-emerald-400 font-medium">
-                            € {Number(p.importo_proposto).toLocaleString('it-IT')}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <span className={`text-xs px-2 py-1 rounded whitespace-nowrap ${colorip}`}>
-                      {statop}
-                    </span>
-                  </div>
-                </Link>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Pulsante per registrare una proposta anche se non ce ne sono ancora */}
-      {(!proposte || proposte.length === 0) && matches.length > 0 && (
-        <div className="mt-10">
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <h3 className="text-lg font-semibold">🤝 Nessuna proposta registrata</h3>
-              <p className="text-sm text-slate-400 mt-1">
-                Quando un cliente visita un immobile e fa un&apos;offerta, registrala qui.
-              </p>
-            </div>
-            <Link
-              href={`/proposte/nuovo?richiesta_id=${id}`}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-5 py-2.5 rounded-lg transition-colors whitespace-nowrap"
-            >
-              + Registra proposta
-            </Link>
-          </div>
-        </div>
-      )}
+      {/* VISITE EFFETTUATE */}
+      <SezioneVisite
+        richiestaId={id}
+        clienteId={richiesta.cliente_id}
+        visite={visite || []}
+      />
 
       {/* IMMOBILI COMPATIBILI */}
       <div className="mt-10">
@@ -535,7 +417,7 @@ export default async function RichiestaPage({
 
         {matches.length > 0 ? (
           <div className="space-y-3">
-            {matches.map((m) => {
+            {matches.map((m: any) => {
               const imm = m.immobile
               const prezzo =
                 richiesta.cerca === 'vendita' || richiesta.cerca === 'nuda_proprieta'
@@ -589,7 +471,7 @@ export default async function RichiestaPage({
                         )}
                       </div>
                       <div className="flex flex-wrap gap-1.5 mt-3">
-                        {m.dettagli.map((d) => (
+                        {m.dettagli.map((d: any) => (
                           <span
                             key={d.nome}
                             className={`text-[11px] px-2 py-0.5 rounded ${
@@ -628,27 +510,11 @@ export default async function RichiestaPage({
               richiesta.stato_immobile ||
               richiesta.riscaldamento
                 ? 'Nessun immobile in portafoglio corrisponde ai criteri (almeno 30%).'
-                : 'Aggiungi criteri di ricerca alla richiesta (frazioni, tipologia, budget, ecc.) per vedere i match.'}
+                : 'Aggiungi criteri di ricerca alla richiesta (località, tipologia, budget, ecc.) per vedere i match.'}
             </p>
           </div>
         )}
       </div>
-
-      <SezioneProposteVisita
-        richiestaId={id}
-        clienteId={richiesta.cliente_id}
-        proposte={proposteVisitaNormalizzate}
-      />
-
-      <SezioneVisite
-        visite={visite || []}
-        contesto={{
-          richiesta_id: id,
-          cliente_id: richiesta.cliente_id,
-        }}
-        mostraFormImmobile={true}
-        mostraFormCliente={false}
-      />
     </div>
   )
 }

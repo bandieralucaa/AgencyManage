@@ -204,8 +204,7 @@ export default function FormIncarico({
       {/* STATO E CHIUSURA */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">Stato incarico</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
           <button
             type="button"
             onClick={() => upd('stato', 'attivo')}
@@ -221,6 +220,19 @@ export default function FormIncarico({
           </button>
           <button
             type="button"
+            onClick={() => upd('stato', 'in_trattativa')}
+            className={`text-left px-4 py-3 rounded-xl border-2 transition-colors ${
+              form.stato === 'in_trattativa'
+                ? 'border-amber-500 bg-amber-500/10'
+                : 'border-slate-700 bg-slate-900 hover:border-slate-600'
+            }`}
+          >
+            <div className="text-xl mb-1">🤝</div>
+            <div className="font-semibold text-white text-sm">In trattativa</div>
+            <div className="text-xs text-slate-400 mt-0.5">Proposta accettata</div>
+          </button>
+          <button
+            type="button"
             onClick={() => upd('stato', 'concluso_bene')}
             className={`text-left px-4 py-3 rounded-xl border-2 transition-colors ${
               form.stato === 'concluso_bene'
@@ -230,7 +242,7 @@ export default function FormIncarico({
           >
             <div className="text-xl mb-1">✅</div>
             <div className="font-semibold text-white text-sm">Concluso bene</div>
-            <div className="text-xs text-slate-400 mt-0.5">Venduto/affittato da noi</div>
+            <div className="text-xs text-slate-400 mt-0.5">Venduto da noi</div>
           </button>
           <button
             type="button"
@@ -246,7 +258,6 @@ export default function FormIncarico({
             <div className="text-xs text-slate-400 mt-0.5">Non concluso</div>
           </button>
         </div>
-
         <input type="hidden" name="stato" value={form.stato} />
 
         {isConclusoBene && (

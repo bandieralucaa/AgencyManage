@@ -6,11 +6,25 @@ import SezioneAttivita from '@/components/sezione-attivita'
 import SezioneVisite from '@/components/sezione-visite'
 import TimelineFlusso from '@/components/timeline-flusso'
 import BreadcrumbFlusso from '@/components/breadcrumb-flusso'
+import VisiteIncarico from './visite-incarico'
 
 const STATI: Record<string, { label: string; colore: string }> = {
-  attivo: { label: '🟢 Attivo', colore: 'bg-emerald-500/20 text-emerald-400' },
-  concluso_bene: { label: '✅ Concluso bene', colore: 'bg-blue-500/20 text-blue-400' },
-  concluso_male: { label: '❌ Concluso male', colore: 'bg-red-500/20 text-red-400' },
+  attivo: {
+    label: '🟢 Attivo',
+    colore: 'bg-emerald-500/20 text-emerald-400',
+  },
+  in_trattativa: {
+    label: '🟡 In trattativa',
+    colore: 'bg-amber-500/20 text-amber-400',
+  },
+  concluso_bene: {
+    label: '✅ Concluso bene',
+    colore: 'bg-blue-500/20 text-blue-400',
+  },
+  concluso_male: {
+    label: '❌ Concluso male',
+    colore: 'bg-red-500/20 text-red-400',
+  },
 }
 
 const MOTIVI_CHIUSURA: Record<string, string> = {
@@ -85,11 +99,20 @@ export default async function IncaricoPage({
     .order('data_attivita', { ascending: false })
 
       // Visite effettuate su questo incarico
-  const { data: visite } = await supabase
-    .from('visite')
-    .select('id, data_visita, note, immobili (indirizzo, civico, comune), clienti (nome, cognome)')
-    .eq('incarico_id', id)
-    .order('data_visita', { ascending: false })
+const { data: visite } = await supabase
+  .from('visite')
+  .select(`
+  id,
+  immobile_id,
+  data_visita,
+  ora_visita,
+  esito,
+  motivo_rifiuto,
+  note,
+  immobili (indirizzo, civico, comune)
+`)
+  .eq('incarico_id', id)
+  .order('data_visita', { ascending: false })
 
     // Visite ricevute su questo immobile (da qualsiasi richiesta)
   let visiteRicevute: any[] = []
@@ -233,6 +256,11 @@ export default async function IncaricoPage({
       <div className="mb-6">
         <TimelineFlusso step={timeline} />
       </div>
+      
+      {/* VISITE SULL'IMMOBILE */}
+      {immobile && (
+        <VisiteIncarico immobileId={immobile.id} />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {immobile && (
@@ -342,7 +370,8 @@ export default async function IncaricoPage({
           </dl>
         </div>
 
-        {!isAttivo && (
+        {(incarico.stato === 'concluso_bene' ||
+          incarico.stato === 'concluso_male') && (
           <div
             className={`border rounded-xl p-6 ${
               incarico.stato === 'concluso_bene'
@@ -444,15 +473,11 @@ export default async function IncaricoPage({
       )}
 
 
-            <SezioneVisite
-        visite={visite || []}
-        contesto={{
-          immobile_id: incarico.immobile_id || undefined,
-          cliente_id: incarico.cliente_id || undefined,
-        }}
-        mostraFormImmobile={false}
-        mostraFormCliente={true}
-      />
+      <SezioneVisite
+  richiestaId=""
+  clienteId={incarico.cliente_id || null}
+  visite={visite || []}
+/>
 
       <SezioneAttivita
         entita="incarico"

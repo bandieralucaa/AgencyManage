@@ -4,6 +4,7 @@ import RicercaIncarichi from '@/components/ricerca-incarichi'
 
 const STATI: Record<string, { label: string; colore: string }> = {
   attivo: { label: '🟢 Attivo', colore: 'bg-emerald-500/20 text-emerald-400' },
+  in_trattativa: { label: '🤝 In trattativa', colore: 'bg-amber-500/20 text-amber-400' },
   concluso_bene: { label: '✅ Concluso bene', colore: 'bg-blue-500/20 text-blue-400' },
   concluso_male: { label: '❌ Concluso male', colore: 'bg-red-500/20 text-red-400' },
 }
