@@ -41,15 +41,22 @@ export default function InputPrezzo({
     onChange(String(n))
   }
 
+  // Il valore raw è quello che verrà inviato con il form
+  const rawValue = value === '' || value === null || value === undefined ? '' : String(value)
+
   return (
-    <input
-      type="text"
-      inputMode="numeric"
-      name={name}
-      value={display}
-      onChange={handleChange}
-      placeholder={placeholder}
-      className={className}
-    />
+    <>
+      {/* Input hidden con name → questo è quello che viene inviato al server */}
+      <input type="hidden" name={name} value={rawValue} />
+      {/* Input visibile → mostra il valore formattato con i punti */}
+      <input
+        type="text"
+        inputMode="numeric"
+        value={display}
+        onChange={handleChange}
+        placeholder={placeholder}
+        className={className}
+      />
+    </>
   )
 }
