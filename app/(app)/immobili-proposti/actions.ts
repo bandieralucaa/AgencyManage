@@ -40,7 +40,7 @@ export async function aggiornaImmobileProposto(
     .update({
       esito: data.esito,
       motivo_rifiuto: data.motivo_rifiuto || null,
-    })a
+    })
 
   if (error) return { ok: false, errore: error.message }
   revalidatePath(`/richieste/${richiestaId}`)
