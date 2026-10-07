@@ -205,6 +205,9 @@ const { data: visite } = await supabase
   }
 
   const giorni = giorniAllaScadenza(incarico.data_scadenza)
+  const giorniSeconda = incarico.seconda_data_scadenza
+    ? giorniAllaScadenza(incarico.seconda_data_scadenza)
+    : null
 
   return (
     <div className="p-6 lg:p-10">
@@ -351,6 +354,26 @@ const { data: visite } = await supabase
                 )}
               </dd>
             </div>
+            {incarico.seconda_data_scadenza && (
+              <div>
+                <dt className="text-slate-400">Seconda data scadenza</dt>
+                <dd className="text-white mt-0.5">
+                  {formatData(incarico.seconda_data_scadenza)}
+
+                  {isAttivo && giorniSeconda !== null && giorniSeconda >= 0 && (
+                    <span className="ml-2 text-xs text-slate-500">
+                      ({giorniSeconda} giorni rimanenti)
+                    </span>
+                  )}
+
+                  {isAttivo && giorniSeconda !== null && giorniSeconda < 0 && (
+                    <span className="ml-2 text-xs text-red-400">
+                      (scaduto da {Math.abs(giorniSeconda)} giorni)
+                    </span>
+                  )}
+                </dd>
+              </div>
+            )}
             {incarico.prezzo && (
               <div>
                 <dt className="text-slate-400">Prezzo richiesto</dt>
