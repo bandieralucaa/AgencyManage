@@ -69,8 +69,49 @@ export async function aggiornaCliente(id: string, formData: FormData) {
 
 export async function eliminaCliente(id: string) {
   const supabase = await createClient()
-  const { error } = await supabase.from('clienti').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+
+  const { data: notizie } = await supabase
+    .from('notizie_proprietari')
+    .select('id')
+    .eq('cliente_id', id)
+    .limit(1)
+
+  const { data: valutazioni } = await supabase
+    .from('valutazioni_proprietari')
+    .select('id')
+    .eq('cliente_id', id)
+    .limit(1)
+
+  const { data: incarichi } = await supabase
+    .from('incarichi_proprietari')
+    .select('id')
+    .eq('cliente_id', id)
+    .limit(1)
+
+  if (
+    (notizie && notizie.length > 0) ||
+    (valutazioni && valutazioni.length > 0) ||
+    (incarichi && incarichi.length > 0)
+  ) {
+    return {
+      success: false,
+      message:
+        'Non puoi eliminare questo cliente perché è ancora associato a una o più notizie, valutazioni o incarichi come proprietario.',
+    }
+  }
+
+  const { error } = await supabase
+    .from('clienti')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    return {
+      success: false,
+      message: error.message,
+    }
+  }
+
   revalidatePath('/clienti')
   redirect('/clienti')
 }

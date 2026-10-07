@@ -42,7 +42,12 @@ export default async function NotiziaPage({
 
   // Letture separate
   let immobile = null
-  let cliente = null
+  let clientiProprietari: {
+    id: string
+    nome: string
+    cognome: string
+    telefono: string | null
+  }[] = []
   let agente = null
 
   if (notizia.immobile_id) {
@@ -54,13 +59,23 @@ export default async function NotiziaPage({
     immobile = data
   }
 
-  if (notizia.cliente_id) {
+  // Proprietari della notizia
+  // Vengono letti esclusivamente da notizie_proprietari.
+  const { data: proprietariRelazioni, error: proprietariError } = await supabase
+  .from('notizie_proprietari')
+  .select('cliente_id')
+  .eq('notizia_id', id)
+
+
+  if (proprietariRelazioni && proprietariRelazioni.length > 0) {
+    const ids = proprietariRelazioni.map((p) => p.cliente_id)
+
     const { data } = await supabase
       .from('clienti')
       .select('id, nome, cognome, telefono')
-      .eq('id', notizia.cliente_id)
-      .maybeSingle()
-    cliente = data
+      .in('id', ids)
+
+    clientiProprietari = data || []
   }
 
   if (notizia.agente_id) {
@@ -100,6 +115,7 @@ export default async function NotiziaPage({
     label: notizia.stato,
     colore: 'bg-slate-700 text-slate-300',
   }
+
   const isImmobileVuoto = notizia.tipo_notizia === 'immobile_vuoto'
 
   // Timeline (sempre mostrata, entrambi i tipi hanno immobile)
@@ -164,6 +180,7 @@ export default async function NotiziaPage({
                 ? `${immobile.indirizzo} ${immobile.civico || ''}`
                 : 'Notizia'}
             </h1>
+
             <div className="flex items-center gap-3 mt-2 text-sm text-slate-400 flex-wrap">
               <span
                 className={`text-xs px-2 py-0.5 rounded font-medium ${
@@ -174,14 +191,19 @@ export default async function NotiziaPage({
               >
                 {isImmobileVuoto ? '🏚️ Immobile vuoto' : '🏠 Immobile da vendere'}
               </span>
+
               <span>·</span>
+
               <span className="text-xs px-2 py-0.5 rounded bg-slate-700 text-slate-300">
                 {TIPI[notizia.tipo] || notizia.tipo || '—'}
               </span>
+
               <span>·</span>
+
               <span className={`text-xs px-2 py-0.5 rounded ${stato.colore}`}>
                 {stato.label}
               </span>
+
               {agente && (
                 <>
                   <span>·</span>
@@ -193,6 +215,7 @@ export default async function NotiziaPage({
               )}
             </div>
           </div>
+
           <div className="flex gap-2 flex-wrap">
             <Link
               href={`/notizie/${id}/modifica`}
@@ -200,6 +223,7 @@ export default async function NotiziaPage({
             >
               Modifica
             </Link>
+
             <EliminaNotiziaButton
               id={id}
               nome={immobile ? `${immobile.indirizzo} ${immobile.civico || ''}` : 'questa notizia'}
@@ -229,15 +253,20 @@ export default async function NotiziaPage({
         {immobile && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
             <h2 className="text-lg font-semibold mb-4">🏠 Immobile collegato</h2>
+
             <dl className="space-y-3 text-sm">
               <div>
                 <dt className="text-slate-400">Indirizzo</dt>
                 <dd className="text-white mt-0.5">
-                  <Link href={`/immobili/${immobile.id}`} className="text-blue-400 hover:underline">
+                  <Link
+                    href={`/immobili/${immobile.id}`}
+                    className="text-blue-400 hover:underline"
+                  >
                     {immobile.indirizzo} {immobile.civico}
                   </Link>
                 </dd>
               </div>
+
               <div>
                 <dt className="text-slate-400">Comune</dt>
                 <dd className="text-white mt-0.5">
@@ -249,24 +278,34 @@ export default async function NotiziaPage({
           </div>
         )}
 
-        {cliente && (
+        {clientiProprietari.length > 0 && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h2 className="text-lg font-semibold mb-4">Cliente collegato</h2>
+            <h2 className="text-lg font-semibold mb-4">👤 Proprietari</h2>
+
             <dl className="space-y-3 text-sm">
-              <div>
-                <dt className="text-slate-400">Nome</dt>
-                <dd className="text-white mt-0.5">
-                  <Link href={`/clienti/${cliente.id}`} className="text-blue-400 hover:underline">
-                    {cliente.cognome} {cliente.nome}
-                  </Link>
-                </dd>
-              </div>
-              {cliente.telefono && (
-                <div>
-                  <dt className="text-slate-400">Telefono</dt>
-                  <dd className="text-white mt-0.5">{cliente.telefono}</dd>
+              {clientiProprietari.map((proprietario) => (
+                <div key={proprietario.id}>
+                  <dt className="text-slate-400">Nome</dt>
+
+                  <dd className="text-white mt-0.5">
+                    <Link
+                      href={`/clienti/${proprietario.id}`}
+                      className="text-blue-400 hover:underline"
+                    >
+                      {proprietario.cognome} {proprietario.nome}
+                    </Link>
+                  </dd>
+
+                  {proprietario.telefono && (
+                    <>
+                      <dt className="text-slate-400 mt-2">Telefono</dt>
+                      <dd className="text-white mt-0.5">
+                        {proprietario.telefono}
+                      </dd>
+                    </>
+                  )}
                 </div>
-              )}
+              ))}
             </dl>
           </div>
         )}
@@ -274,6 +313,7 @@ export default async function NotiziaPage({
         {notizia.motivo_chiusura && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6 lg:col-span-2">
             <h2 className="text-lg font-semibold mb-4">Motivo chiusura</h2>
+
             <p className="text-sm text-slate-300 whitespace-pre-wrap">
               {notizia.motivo_chiusura}
             </p>

@@ -30,8 +30,8 @@ export default async function ValutazionePage({
   if (!valutazione) notFound()
 
   // Letture separate
-  let immobile = null
-  let cliente = null
+ let immobile = null
+  let proprietari: any[] = []
   let notizia = null
 
   if (valutazione.immobile_id) {
@@ -43,13 +43,21 @@ export default async function ValutazionePage({
     immobile = data
   }
 
-  if (valutazione.cliente_id) {
+  const { data: proprietariValutazione } = await supabase
+    .from('valutazioni_proprietari')
+    .select('cliente_id')
+    .eq('valutazione_id', id)
+
+  const proprietariIds =
+    proprietariValutazione?.map((p) => p.cliente_id).filter(Boolean) || []
+
+  if (proprietariIds.length > 0) {
     const { data } = await supabase
       .from('clienti')
       .select('id, nome, cognome, telefono, email')
-      .eq('id', valutazione.cliente_id)
-      .maybeSingle()
-    cliente = data
+      .in('id', proprietariIds)
+
+    proprietari = data || []
   }
 
   if (valutazione.notizia_id) {
@@ -209,25 +217,36 @@ export default async function ValutazionePage({
           </div>
         )}
 
-        {cliente && (
+        {proprietari.length > 0 && (
           <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h2 className="text-lg font-semibold mb-4">Cliente</h2>
-            <dl className="space-y-3 text-sm">
-              <div>
-                <dt className="text-slate-400">Nome</dt>
-                <dd className="text-white mt-0.5">
-                  <Link href={`/clienti/${cliente.id}`} className="text-blue-400 hover:underline">
-                    {cliente.cognome} {cliente.nome}
-                  </Link>
-                </dd>
-              </div>
-              {cliente.telefono && (
-                <div>
-                  <dt className="text-slate-400">Telefono</dt>
-                  <dd className="text-white mt-0.5">{cliente.telefono}</dd>
+            <h2 className="text-lg font-semibold mb-4">
+              👤 Proprietari
+            </h2>
+
+            <div className="space-y-4">
+              {proprietari.map((proprietario) => (
+                <div key={proprietario.id}>
+                  <dt className="text-slate-400 text-sm">Nome</dt>
+                  <dd className="text-white mt-0.5">
+                    <Link
+                      href={`/clienti/${proprietario.id}`}
+                      className="text-blue-400 hover:underline"
+                    >
+                      {proprietario.cognome} {proprietario.nome}
+                    </Link>
+                  </dd>
+
+                  {proprietario.telefono && (
+                    <div className="mt-2">
+                      <dt className="text-slate-400 text-sm">Telefono</dt>
+                      <dd className="text-white mt-0.5">
+                        {proprietario.telefono}
+                      </dd>
+                    </div>
+                  )}
                 </div>
-              )}
-            </dl>
+              ))}
+            </div>
           </div>
         )}
 

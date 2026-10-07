@@ -52,7 +52,7 @@ export default async function IncaricoPage({
 
   // Letture separate
   let immobile = null
-  let cliente = null
+  let proprietari: any[] = []
   let valutazione = null
   let notizia = null
 
@@ -65,14 +65,23 @@ export default async function IncaricoPage({
     immobile = data
   }
 
-  if (incarico.cliente_id) {
-    const { data } = await supabase
-      .from('clienti')
-      .select('id, nome, cognome, telefono, email')
-      .eq('id', incarico.cliente_id)
-      .maybeSingle()
-    cliente = data
-  }
+  const { data: proprietariIncarico } = await supabase
+  .from('incarichi_proprietari')
+  .select('cliente_id')
+  .eq('incarico_id', id)
+
+const proprietariIds =
+  proprietariIncarico?.map((p) => p.cliente_id).filter(Boolean) || []
+
+if (proprietariIds.length > 0) {
+  const { data } = await supabase
+    .from('clienti')
+    .select('id, nome, cognome, telefono, email')
+    .in('id', proprietariIds)
+
+  proprietari = data || []
+}
+
 
   if (incarico.valutazione_id) {
     const { data: v } = await supabase
@@ -286,33 +295,38 @@ const { data: visite } = await supabase
           </div>
         )}
 
-        {cliente && (
-          <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-            <h2 className="text-lg font-semibold mb-4">Cliente venditore</h2>
-            <dl className="space-y-3 text-sm">
-              <div>
-                <dt className="text-slate-400">Nome</dt>
-                <dd className="text-white mt-0.5">
-                  <Link href={`/clienti/${cliente.id}`} className="text-blue-400 hover:underline">
-                    {cliente.cognome} {cliente.nome}
-                  </Link>
-                </dd>
-              </div>
-              {cliente.telefono && (
-                <div>
-                  <dt className="text-slate-400">Telefono</dt>
-                  <dd className="text-white mt-0.5">{cliente.telefono}</dd>
-                </div>
-              )}
-              {cliente.email && (
-                <div>
-                  <dt className="text-slate-400">Email</dt>
-                  <dd className="text-white mt-0.5">{cliente.email}</dd>
-                </div>
-              )}
-            </dl>
+        {proprietari.length > 0 && (
+  <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+    <h2 className="text-lg font-semibold mb-4">Proprietari</h2>
+
+    <div className="space-y-4">
+      {proprietari.map((proprietario) => (
+        <div key={proprietario.id}>
+          <div className="text-sm">
+            <Link
+              href={`/clienti/${proprietario.id}`}
+              className="text-blue-400 hover:underline"
+            >
+              {proprietario.cognome} {proprietario.nome}
+            </Link>
           </div>
-        )}
+
+          {proprietario.telefono && (
+            <div className="text-sm text-slate-400 mt-1">
+              📞 {proprietario.telefono}
+            </div>
+          )}
+
+          {proprietario.email && (
+            <div className="text-sm text-slate-400 mt-1">
+              ✉️ {proprietario.email}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
         <div className="bg-slate-800 border border-slate-700 rounded-xl p-6">
           <h2 className="text-lg font-semibold mb-4">Dettagli incarico</h2>
@@ -472,12 +486,11 @@ const { data: visite } = await supabase
         </div>
       )}
 
-
       <SezioneVisite
-  richiestaId=""
-  clienteId={incarico.cliente_id || null}
-  visite={visite || []}
-/>
+        richiestaId=""
+        clienteId={null}
+        visite={visite || []}
+      />
 
       <SezioneAttivita
         entita="incarico"

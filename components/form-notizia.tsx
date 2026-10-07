@@ -3,10 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-type Opzione = {
-  id: string
-  label: string
-}
+type Opzione = { id: string; label: string }
 
 export default function FormNotizia({
   notizia,
@@ -17,12 +14,10 @@ export default function FormNotizia({
 }) {
   const supabase = createClient()
 
-const [clienti, setClienti] = useState<Opzione[]>([
-  { id: 'test-1', label: 'Cliente Test 1' },
-  { id: 'test-2', label: 'Cliente Test 2' },
-])  
-const [immobili, setImmobili] = useState<Opzione[]>([])
+  const [clienti, setClienti] = useState<Opzione[]>([])
+  const [immobili, setImmobili] = useState<Opzione[]>([])
 
+  // PROPRIETARI
   const [proprietari, setProprietari] = useState<string[]>(
     notizia?.proprietari?.map((p: any) => p.cliente_id) ?? []
   )
@@ -33,16 +28,12 @@ const [immobili, setImmobili] = useState<Opzione[]>([])
   const [form, setForm] = useState({
     tipo_notizia: notizia?.tipo_notizia ?? 'immobile_vuoto',
     immobile_id: notizia?.immobile_id ?? '',
-    cliente_id: notizia?.cliente_id ?? '',
     tipo: notizia?.tipo ?? 'agenzia',
     stato: notizia?.stato ?? 'aperta',
     motivo_chiusura: notizia?.motivo_chiusura ?? '',
   })
 
-  function upd<K extends keyof typeof form>(
-    field: K,
-    value: typeof form[K]
-  ) {
+  function upd<K extends keyof typeof form>(field: K, value: typeof form[K]) {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
@@ -82,20 +73,43 @@ const [immobili, setImmobili] = useState<Opzione[]>([])
     }
 
     carica()
-  }, [])
+  }, [supabase])
 
   const mostraMotivoChiusura = form.stato.startsWith('chiusa_')
   const isImmobileVuoto = form.tipo_notizia === 'immobile_vuoto'
   const isImmobileVendesi = form.tipo_notizia === 'immobile_vendesi'
 
+  // CLIENTI FILTRATI PER LA RICERCA PROPRIETARI
+  const clientiFiltrati = clienti.filter((c) =>
+    c.label.toLowerCase().includes(cercaProprietario.toLowerCase())
+  )
+
+  // SELEZIONA / DESELEZIONA PROPRIETARIO
+  function toggleProprietario(id: string) {
+    setProprietari((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((x) => x !== id)
+      }
+
+      // MASSIMO 2 PROPRIETARI
+      if (prev.length >= 2) {
+        return prev
+      }
+
+      return [...prev, id]
+    })
+  }
+
+  // RIMUOVI PROPRIETARIO DAI TAG
+  function rimuoviProprietario(id: string) {
+    setProprietari((prev) => prev.filter((x) => x !== id))
+  }
+
   return (
     <form action={action} className="space-y-8">
-
       {/* TIPO NOTIZIA */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4">
-          Tipo di notizia *
-        </h2>
+        <h2 className="text-lg font-semibold mb-4">Tipo di notizia *</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
@@ -160,7 +174,9 @@ const [immobili, setImmobili] = useState<Opzione[]>([])
             onChange={(e) => upd('immobile_id', e.target.value)}
             className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">— Seleziona immobile —</option>
+            <option value="">
+              — Seleziona immobile —
+            </option>
 
             {immobili.map((i) => (
               <option key={i.id} value={i.id}>
@@ -175,15 +191,145 @@ const [immobili, setImmobili] = useState<Opzione[]>([])
         </div>
       </section>
 
-      {/* PROVENIENZA + PROPRIETARI */}
+      {/* PROPRIETARI */}
+      <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+        <h2 className="text-lg font-semibold mb-4">
+          Proprietari
+        </h2>
+
+        <div>
+          <label className="block text-sm font-medium text-slate-300 mb-2">
+            Seleziona i proprietari
+          </label>
+
+          {/* PROPRIETARI SELEZIONATI */}
+          {proprietari.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-3">
+              {proprietari.map((id) => {
+                const cliente = clienti.find((c) => c.id === id)
+
+                return (
+                  <div
+                    key={id}
+                    className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-300 text-sm"
+                  >
+                    <span>
+                      {cliente?.label ?? 'Cliente'}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => rimuoviProprietario(id)}
+                      className="text-blue-300 hover:text-white"
+                      aria-label={`Rimuovi ${cliente?.label ?? 'cliente'}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* SELECT PERSONALIZZATA */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() =>
+                setMostraProprietari((prev) => !prev)
+              }
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-left text-white hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              {proprietari.length === 0
+                ? '— Seleziona proprietario/i —'
+                : `Selezionati ${proprietari.length} di 2`}
+            </button>
+
+            {mostraProprietari && (
+              <div className="absolute z-50 mt-2 w-full bg-slate-900 border border-slate-600 rounded-lg shadow-xl overflow-hidden">
+
+                {/* RICERCA */}
+                <div className="p-3 border-b border-slate-700">
+                  <input
+                    type="text"
+                    value={cercaProprietario}
+                    onChange={(e) =>
+                      setCercaProprietario(e.target.value)
+                    }
+                    placeholder="Cerca proprietario..."
+                    className="w-full px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                {/* LISTA */}
+                <div className="max-h-60 overflow-y-auto p-2">
+                  {clientiFiltrati.length === 0 ? (
+                    <div className="px-3 py-3 text-sm text-slate-400">
+                      Nessun cliente trovato
+                    </div>
+                  ) : (
+                    clientiFiltrati.map((cliente) => {
+                      const selezionato = proprietari.includes(cliente.id)
+
+                      return (
+                        <label
+                          key={cliente.id}
+                          className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-800"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selezionato}
+                            onChange={() =>
+                              toggleProprietario(cliente.id)
+                            }
+                            disabled={
+                              !selezionato &&
+                              proprietari.length >= 2
+                            }
+                            className="h-4 w-4"
+                          />
+
+                          <span className="text-sm text-white">
+                            {cliente.label}
+                          </span>
+                        </label>
+                      )
+                    })
+                  )}
+                </div>
+
+                {/* CONTATORE */}
+                <div className="px-3 py-2 border-t border-slate-700 text-xs text-slate-500">
+                  {proprietari.length}/2 proprietari selezionati
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* DATI INVIATI ALLA SERVER ACTION */}
+          {proprietari.map((id) => (
+            <input
+              key={id}
+              type="hidden"
+              name="proprietari"
+              value={id}
+            />
+          ))}
+
+          <p className="text-xs text-slate-500 mt-2">
+            Puoi indicare uno o due proprietari. In caso di due
+            proprietari, entrambi hanno lo stesso peso.
+          </p>
+        </div>
+      </section>
+
+      {/* PROVENIENZA */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
         <h2 className="text-lg font-semibold mb-4">
           Provenienza
         </h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-          {/* PROVENIENZA */}
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
               Come l&apos;hai saputo? *
@@ -205,57 +351,6 @@ const [immobili, setImmobili] = useState<Opzione[]>([])
               <option value="altro">Altro</option>
             </select>
           </div>
-
-          {/* PROPRIETARI */}
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            Proprietari
-          </label>
-
-          <div className="space-y-2">
-            {clienti.map((cliente) => {
-              const selezionato = proprietari.includes(cliente.id)
-
-              return (
-                <label
-                  key={cliente.id}
-                  className="flex items-center gap-3 text-sm text-white cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    checked={selezionato}
-                    disabled={!selezionato && proprietari.length >= 2}
-                    onChange={() => {
-                      if (selezionato) {
-                        setProprietari((prev) =>
-                          prev.filter((id) => id !== cliente.id)
-                        )
-                      } else if (proprietari.length < 2) {
-                        setProprietari((prev) => [...prev, cliente.id])
-                      }
-                    }}
-                    className="w-4 h-4"
-                  />
-
-                  {cliente.label}
-                </label>
-              )
-            })}
-          </div>
-
-          <p className="text-xs text-slate-500 mt-1">
-            Se l&apos;immobile è cointestato, seleziona entrambi i proprietari.
-          </p>
-
-          {proprietari.map((id) => (
-            <input
-              key={id}
-              type="hidden"
-              name="proprietari"
-              value={id}
-            />
-          ))}
-        </div>
         </div>
       </section>
 
@@ -278,10 +373,21 @@ const [immobili, setImmobili] = useState<Opzione[]>([])
               onChange={(e) => upd('stato', e.target.value)}
               className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="aperta">Aperta</option>
-              <option value="in_lavorazione">In lavorazione</option>
-              <option value="chiusa_positiva">Chiusa positiva</option>
-              <option value="chiusa_negativa">Chiusa negativa</option>
+              <option value="aperta">
+                Aperta
+              </option>
+
+              <option value="in_lavorazione">
+                In lavorazione
+              </option>
+
+              <option value="chiusa_positiva">
+                Chiusa positiva
+              </option>
+
+              <option value="chiusa_negativa">
+                Chiusa negativa
+              </option>
             </select>
           </div>
         </div>
@@ -299,14 +405,14 @@ const [immobili, setImmobili] = useState<Opzione[]>([])
               onChange={(e) =>
                 upd('motivo_chiusura', e.target.value)
               }
-              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white"
+              className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Dettagli sulla chiusura della notizia..."
             />
           </div>
         )}
       </section>
 
-      {/* BOTTONI */}
+      {/* PULSANTI */}
       <div className="flex gap-3 justify-end">
         <a
           href={notizia?.id ? `/notizie/${notizia.id}` : '/notizie'}
@@ -322,7 +428,6 @@ const [immobili, setImmobili] = useState<Opzione[]>([])
           {notizia?.id ? 'Salva modifiche' : 'Crea notizia'}
         </button>
       </div>
-
     </form>
   )
 }

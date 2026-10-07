@@ -55,7 +55,7 @@ export async function creaVisita(data: DatiVisita): Promise<Risultato> {
   }
 
   const { error } = await supabase.from('visite').insert({
-    richiesta_id: data.richiesta_id,
+    richiesta_id: data.richiesta_id || null,
     immobile_id: data.immobile_id || null,
     incarico_id: incaricoId,
     cliente_id: data.cliente_id || null,

@@ -20,6 +20,11 @@ export default async function ModificaIncaricoPage({
 
   if (!incarico) notFound()
 
+  const { data: proprietari } = await supabase
+  .from('incarichi_proprietari')
+  .select('cliente_id')
+  .eq('incarico_id', id)
+
   const aggiornaConId = aggiornaIncarico.bind(null, id)
 
   return (
@@ -34,7 +39,11 @@ export default async function ModificaIncaricoPage({
         <h1 className="text-3xl font-bold mt-2">Modifica incarico</h1>
       </div>
 
-      <FormIncarico incarico={incarico} action={aggiornaConId} />
+      <FormIncarico
+        incarico={incarico}
+        proprietari={proprietari || []}
+        action={aggiornaConId}
+      />
     </div>
   )
 }

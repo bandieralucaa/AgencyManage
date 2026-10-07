@@ -20,8 +20,7 @@ export default async function ValutazioniPage({
     .from('valutazioni')
     .select(`
       id, indirizzo, civico, frazione, comune, data_valutazione,
-      prezzo_valutato, prezzo_richiesto, metratura, stato,
-      clienti (id, nome, cognome)
+      prezzo_valutato, prezzo_richiesto, metratura, stato
     `)
     .order('data_valutazione', { ascending: false })
 
@@ -32,6 +31,50 @@ export default async function ValutazioniPage({
   if (params.frazione) query = query.eq('frazione', params.frazione)
 
   const { data: valutazioni } = await query
+
+  const valutazioneIds = (valutazioni || []).map((v) => v.id)
+
+  const { data: proprietariRes } =
+    valutazioneIds.length > 0
+      ? await supabase
+          .from('valutazioni_proprietari')
+          .select('valutazione_id, cliente_id')
+          .in('valutazione_id', valutazioneIds)
+      : { data: [] }
+
+  const proprietarioIds = [
+    ...new Set(
+      (proprietariRes || [])
+        .map((p) => p.cliente_id)
+        .filter(Boolean)
+    ),
+  ]
+
+  const { data: clientiProprietari } =
+    proprietarioIds.length > 0
+      ? await supabase
+          .from('clienti')
+          .select('id, nome, cognome')
+          .in('id', proprietarioIds)
+      : { data: [] }
+
+  const clientiMap = new Map(
+    (clientiProprietari || []).map((c) => [c.id, c])
+  )
+
+  const proprietariMap = new Map<
+    string,
+    { id: string; nome: string; cognome: string }[]
+  >()
+
+  for (const relazione of proprietariRes || []) {
+    const cliente = clientiMap.get(relazione.cliente_id)
+    if (!cliente) continue
+
+    const lista = proprietariMap.get(relazione.valutazione_id) || []
+    lista.push(cliente)
+    proprietariMap.set(relazione.valutazione_id, lista)
+  }
 
   // Recupera gli ID delle valutazioni con incarico collegato
   const { data: incarichiCollegati } = await supabase
@@ -77,7 +120,7 @@ export default async function ValutazioniPage({
             <thead className="bg-slate-900 border-b border-slate-700">
               <tr className="text-left text-xs text-slate-400 uppercase">
                 <th className="px-5 py-3 font-medium">Immobile</th>
-                <th className="px-5 py-3 font-medium">Cliente</th>
+                <th className="px-5 py-3 font-medium">Proprietari</th>
                 <th className="px-5 py-3 font-medium">Data</th>
                 <th className="px-5 py-3 font-medium">Prezzo valutato</th>
                 <th className="px-5 py-3 font-medium w-32">Stato</th>
@@ -86,7 +129,7 @@ export default async function ValutazioniPage({
             </thead>
             <tbody>
               {valutazioni.map((v: any) => {
-                const cli = Array.isArray(v.clienti) ? v.clienti[0] : v.clienti
+                const proprietari = proprietariMap.get(v.id) || []
                 const stato = STATI[v.stato] || {
                   label: v.stato,
                   colore: 'bg-slate-700 text-slate-300',
@@ -112,8 +155,22 @@ export default async function ValutazioniPage({
                         </div>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-sm text-slate-300">
-                      {cli ? `${cli.cognome} ${cli.nome}` : '—'}
+                   <td className="px-5 py-3 text-sm text-slate-300">
+                      {proprietari.length > 0 ? (
+                        <div className="space-y-1">
+                          {proprietari.map((p) => (
+                            <Link
+                              key={p.id}
+                              href={`/clienti/${p.id}`}
+                              className="block text-blue-400 hover:underline"
+                            >
+                              {p.cognome} {p.nome}
+                            </Link>
+                          ))}
+                        </div>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                     <td className="px-5 py-3 text-sm text-slate-300">
                       {formatData(v.data_valutazione)}

@@ -3,9 +3,14 @@
 import { eliminaCliente } from '../actions'
 
 export default function EliminaClienteButton({ id, nome }: { id: string; nome: string }) {
-  function handleElimina() {
+  async function handleElimina() {
     if (!confirm(`Eliminare definitivamente ${nome}? L'azione non è reversibile.`)) return
-    eliminaCliente(id)
+
+    const risultato = await eliminaCliente(id)
+
+    if (risultato?.success === false) {
+      alert(risultato.message)
+    }
   }
 
   return (

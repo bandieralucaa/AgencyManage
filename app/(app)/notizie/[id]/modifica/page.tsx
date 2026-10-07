@@ -13,10 +13,15 @@ export default async function ModificaNotiziaPage({
   const supabase = await createClient()
 
   const { data: notizia } = await supabase
-    .from('notizie')
-    .select('*')
-    .eq('id', id)
-    .single()
+  .from('notizie')
+  .select(`
+    *,
+    proprietari:notizie_proprietari (
+      cliente_id
+    )
+  `)
+  .eq('id', id)
+  .single()
 
   if (!notizia) notFound()
 

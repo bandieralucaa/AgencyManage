@@ -15,19 +15,29 @@ const MOTIVI_CHIUSURA_MALE = [
 
 export default function FormIncarico({
   incarico,
+  proprietari = [],
   action,
 }: {
   incarico?: any
+  proprietari?: { cliente_id: string }[]
   action: (formData: FormData) => void | Promise<void>
 }) {
   const supabase = createClient()
   const [clienti, setClienti] = useState<Opzione[]>([])
   const [errore, setErrore] = useState('')
 
+  const [proprietariSelezionati, setProprietariSelezionati] = useState<string[]>(
+  proprietari.map((p) => p.cliente_id)
+  )
+
+  const [cercaProprietario, setCercaProprietario] = useState('')
+  const [mostraProprietari, setMostraProprietari] = useState(false)
+
   const [form, setForm] = useState({
-    cliente_id: incarico?.cliente_id ?? '',
     tipo: incarico?.tipo ?? 'vendita',
-    data_inizio: incarico?.data_inizio ?? new Date().toISOString().split('T')[0],
+    data_inizio:
+      incarico?.data_inizio ??
+      new Date().toISOString().split('T')[0],
     data_scadenza: incarico?.data_scadenza ?? '',
     seconda_data_scadenza: incarico?.seconda_data_scadenza ?? '',
     prezzo: incarico?.prezzo ?? '',
@@ -42,6 +52,24 @@ export default function FormIncarico({
 
   function upd<K extends keyof typeof form>(field: K, value: typeof form[K]) {
     setForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  function toggleProprietario(id: string) {
+    setProprietariSelezionati((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((x) => x !== id)
+      }
+
+      if (prev.length >= 2) {
+        return prev
+      }
+
+      return [...prev, id]
+    })
+  }
+
+  function rimuoviProprietario(id: string) {
+    setProprietariSelezionati((prev) => prev.filter((x) => x !== id))
   }
 
   function validaDate(): string {
@@ -94,28 +122,107 @@ export default function FormIncarico({
       }}
       className="space-y-8"
     >
-      {/* CLIENTE */}
-      <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-lg font-semibold mb-4">Cliente</h2>
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-2">
-            Cliente venditore (opzionale)
-          </label>
-          <select
-            name="cliente_id"
-            value={form.cliente_id}
-            onChange={(e) => upd('cliente_id', e.target.value)}
-            className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">— Nessuno —</option>
-            {clienti.map((c) => (
-              <option key={c.id} value={c.id}>
+      {/* PROPRIETARI */}
+<section className="bg-slate-800 border border-slate-700 rounded-xl p-6">
+  <h2 className="text-lg font-semibold mb-4">Proprietari</h2>
+
+  <div className="relative">
+    <label className="block text-sm font-medium text-slate-300 mb-2">
+      Proprietari dell&apos;immobile (massimo 2)
+    </label>
+
+    {/* Proprietari selezionati */}
+    {proprietariSelezionati.length > 0 && (
+      <div className="flex flex-wrap gap-2 mb-3">
+        {proprietariSelezionati.map((id) => {
+          const proprietario = clienti.find((c) => c.id === id)
+
+          return (
+            <div
+              key={id}
+              className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/40 text-blue-300 px-3 py-1.5 rounded-lg text-sm"
+            >
+              <span>{proprietario?.label || 'Proprietario'}</span>
+
+              <button
+                type="button"
+                onClick={() => rimuoviProprietario(id)}
+                className="text-blue-300 hover:text-white"
+              >
+                ×
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    )}
+
+    {/* Campo ricerca */}
+    <input
+      type="text"
+      value={cercaProprietario}
+      onChange={(e) => {
+        setCercaProprietario(e.target.value)
+        setMostraProprietari(true)
+      }}
+      onFocus={() => setMostraProprietari(true)}
+      onBlur={() => {
+        setTimeout(() => setMostraProprietari(false), 150)
+      }}
+      placeholder="Cerca cliente..."
+      className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+    />
+
+    {/* Lista clienti */}
+    {mostraProprietari && (
+      <div className="absolute z-10 mt-1 w-full bg-slate-900 border border-slate-600 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+        {clienti
+          .filter((c) =>
+            c.label.toLowerCase().includes(cercaProprietario.toLowerCase())
+          )
+          .map((c) => {
+            const selezionato = proprietariSelezionati.includes(c.id)
+
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => toggleProprietario(c.id)}
+                className={`w-full text-left px-4 py-2.5 hover:bg-slate-800 ${
+                  selezionato ? 'text-blue-400' : 'text-white'
+                }`}
+              >
+                {selezionato ? '✓ ' : ''}
                 {c.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      </section>
+              </button>
+            )
+          })}
+
+        {clienti.filter((c) =>
+          c.label.toLowerCase().includes(cercaProprietario.toLowerCase())
+        ).length === 0 && (
+          <div className="px-4 py-3 text-sm text-slate-500">
+            Nessun cliente trovato
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* Hidden inputs per il server action */}
+    {proprietariSelezionati.map((id) => (
+      <input
+        key={id}
+        type="hidden"
+        name="proprietari"
+        value={id}
+      />
+    ))}
+
+    <p className="text-xs text-slate-500 mt-2">
+      Puoi selezionare fino a 2 proprietari.
+    </p>
+  </div>
+</section>
 
       {/* DETTAGLI INCARICO */}
       <section className="bg-slate-800 border border-slate-700 rounded-xl p-6">

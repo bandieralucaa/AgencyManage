@@ -27,7 +27,7 @@ export default async function IncarichiPage({
   // 1. Leggi tutti gli incarichi (query semplice, niente join ambigui)
   let query = supabase
     .from('incarichi')
-    .select('id, tipo, stato, data_inizio, data_scadenza, seconda_data_scadenza, prezzo, esclusivo, data_chiusura, motivo_chiusura, valutazione_id, cliente_id, immobile_id')
+    .select('id, tipo, stato, data_inizio, data_scadenza, seconda_data_scadenza, prezzo, esclusivo, data_chiusura, motivo_chiusura, valutazione_id, immobile_id')
     .order('data_scadenza', { ascending: true })
 
   if (params.tipo) query = query.eq('tipo', params.tipo)
@@ -39,7 +39,7 @@ export default async function IncarichiPage({
   const incarichiConDettagli = await Promise.all(
     (incarichi || []).map(async (inc: any) => {
       let valutazione = null
-      let cliente = null
+      let proprietari: any[] = []
       let immobilePortafoglio = null
 
       if (inc.valutazione_id) {
@@ -51,13 +51,21 @@ export default async function IncarichiPage({
         valutazione = v
       }
 
-      if (inc.cliente_id) {
-        const { data: c } = await supabase
+      const { data: proprietariIncarico } = await supabase
+        .from('incarichi_proprietari')
+        .select('cliente_id')
+        .eq('incarico_id', inc.id)
+
+      const proprietariIds =
+        proprietariIncarico?.map((p) => p.cliente_id).filter(Boolean) || []
+
+      if (proprietariIds.length > 0) {
+        const { data } = await supabase
           .from('clienti')
-          .select('nome, cognome')
-          .eq('id', inc.cliente_id)
-          .maybeSingle()
-        cliente = c
+          .select('id, nome, cognome')
+          .in('id', proprietariIds)
+
+        proprietari = data || []
       }
 
       if (inc.immobile_id) {
@@ -70,7 +78,7 @@ export default async function IncarichiPage({
         immobilePortafoglio = i
       }
 
-      return { ...inc, valutazione, cliente, immobilePortafoglio }
+      return { ...inc, valutazione, proprietari, immobilePortafoglio }
     })
   )
 
@@ -123,7 +131,7 @@ export default async function IncarichiPage({
             <thead className="bg-slate-900 border-b border-slate-700">
               <tr className="text-left text-xs text-slate-400 uppercase">
                 <th className="px-5 py-3 font-medium">Immobile</th>
-                <th className="px-5 py-3 font-medium">Cliente</th>
+                <th className="px-5 py-3 font-medium">Proprietari</th>
                 <th className="px-5 py-3 font-medium">Tipo</th>
                 <th className="px-5 py-3 font-medium">Prezzo</th>
                 <th className="px-5 py-3 font-medium">Scadenza / Chiusura</th>
@@ -134,7 +142,7 @@ export default async function IncarichiPage({
             <tbody>
               {incarichiConDettagli.map((i: any) => {
                 const val = i.valutazione
-                const cli = i.cliente
+                const proprietari = i.proprietari
                 const inPortafoglio = i.immobilePortafoglio
                 const stato = STATI[i.stato] || {
                   label: i.stato,
@@ -164,8 +172,22 @@ export default async function IncarichiPage({
                         </div>
                       )}
                     </td>
-                    <td className="px-5 py-3 text-sm text-slate-300">
-                      {cli ? `${cli.cognome} ${cli.nome}` : '—'}
+                   <td className="px-5 py-3 text-sm text-slate-300">
+                      {proprietari.length > 0 ? (
+                        <div className="flex flex-col gap-1">
+                          {proprietari.map((proprietario: any) => (
+                            <Link
+                              key={proprietario.id}
+                              href={`/clienti/${proprietario.id}`}
+                              className="text-blue-400 hover:underline"
+                            >
+                              {proprietario.cognome} {proprietario.nome}
+                            </Link>
+                          ))}
+                        </div>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                     <td className="px-5 py-3 text-sm text-slate-300 capitalize">
                       {i.tipo}

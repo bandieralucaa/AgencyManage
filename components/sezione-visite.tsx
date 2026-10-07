@@ -73,11 +73,12 @@ note: '',
 
 useEffect(() => {
   async function carica() {
-      const { data: clientiData } = await supabase
-        .from('clienti')
-        .select('id, nome, cognome')
-        .eq('attivo', true)
-        .order('cognome', { ascending: true })
+    const { data: clientiData } = await supabase
+      .from('clienti')
+      .select('id, nome, cognome, tipo')
+      .eq('attivo', true)
+      .in('tipo', ['acquirente', 'entrambi'])
+      .order('cognome', { ascending: true })
 
       if (clientiData) {
         setClienti(
@@ -215,7 +216,7 @@ motivo_rifiuto: form.motivo_rifiuto || undefined,
     : await creaVisita({
         richiesta_id: richiestaId,
         immobile_id: form.immobile_id || undefined,
-        cliente_id: clienteId || undefined,
+        cliente_id: form.cliente_id || undefined,
         data_visita: form.data_visita,
         ora_visita: form.ora_visita || undefined,
         esito: form.esito as 'piace' | 'non_piace',
