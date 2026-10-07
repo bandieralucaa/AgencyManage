@@ -70,14 +70,14 @@ esito: 'piace',
 motivo_rifiuto: '',
 note: '',
 })
-
+console.log('CLIENTE ID RICEVUTO:', clienteId)
 useEffect(() => {
   async function carica() {
-    const { data: clientiData } = await supabase
+    const { data: clientiData, error: clientiError } = await supabase
       .from('clienti')
       .select('id, nome, cognome, tipo')
       .eq('attivo', true)
-      .in('tipo', ['acquirente', 'entrambi'])
+      .or(`tipo.in.(acquirente,entrambi),id.eq.${clienteId}`)
       .order('cognome', { ascending: true })
 
       if (clientiData) {
