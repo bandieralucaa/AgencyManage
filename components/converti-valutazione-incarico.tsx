@@ -24,6 +24,7 @@ export default function ConvertiValutazioneIncarico({
     tipo: 'vendita',
     data_inizio: oggi.toISOString().split('T')[0],
     data_scadenza: scadenza.toISOString().split('T')[0],
+    seconda_data_scadenza: '',
     prezzo: prezzoSuggerito ? String(prezzoSuggerito) : '',
     prezzo_pubblicita: '',
     esclusivo: false,
@@ -33,13 +34,30 @@ export default function ConvertiValutazioneIncarico({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setLoading(true)
     setErrore('')
+
+    if (new Date(form.data_scadenza) < new Date(form.data_inizio)) {
+      setErrore('La data di scadenza non può essere precedente alla data di inizio.')
+      return
+    }
+
+    if (
+      form.seconda_data_scadenza &&
+      new Date(form.seconda_data_scadenza) <= new Date(form.data_scadenza)
+    ) {
+      setErrore(
+        'La seconda data di scadenza deve essere successiva alla prima data di scadenza.'
+      )
+      return
+    }
+
+    setLoading(true)
 
     const fd = new FormData()
     fd.append('tipo', form.tipo)
     fd.append('data_inizio', form.data_inizio)
     fd.append('data_scadenza', form.data_scadenza)
+    fd.append('seconda_data_scadenza', form.seconda_data_scadenza)
     fd.append('prezzo', form.prezzo)
     fd.append('prezzo_pubblicita', form.prezzo_pubblicita)
     if (form.esclusivo) fd.append('esclusivo', 'on')
@@ -101,7 +119,7 @@ export default function ConvertiValutazioneIncarico({
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
                     Tipo *
@@ -137,6 +155,19 @@ export default function ConvertiValutazioneIncarico({
                     required
                     value={form.data_scadenza}
                     onChange={(e) => setForm({ ...form, data_scadenza: e.target.value })}
+                    className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Seconda data scadenza
+                  </label>
+                  <input
+                    type="date"
+                    value={form.seconda_data_scadenza}
+                    onChange={(e) =>
+                      setForm({ ...form, seconda_data_scadenza: e.target.value })
+                    }
                     className="w-full px-4 py-2.5 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>

@@ -147,6 +147,7 @@ export async function valutazioneToIncarico(
         (formData.get('data_inizio') as string) ||
         new Date().toISOString().split('T')[0],
       data_scadenza: formData.get('data_scadenza') as string,
+      seconda_data_scadenza: (formData.get('seconda_data_scadenza') as string) || null,
       prezzo: numOrNull(formData.get('prezzo')),
       prezzo_pubblicita: numOrNull(
         formData.get('prezzo_pubblicita')
